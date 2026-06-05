@@ -30,7 +30,14 @@ export default async function ChatRoute({ params }: { params: Promise<{ orderId:
   if (!order) notFound()
 
   const isCustomer = order.customer_id === user.id
-  const riderUserId = (order.rider as { user_id: string } | null)?.user_id
+
+  // Supabase join may return array or object — normalise to single value
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const riderRaw = order.rider as any
+  const riderObj: { user_id: string; users: { full_name: string } | { full_name: string }[] | null } | null =
+    Array.isArray(riderRaw) ? (riderRaw[0] ?? null) : riderRaw ?? null
+
+  const riderUserId: string | null = riderObj?.user_id ?? null
   const isRider = !!riderUserId && riderUserId === user.id
 
   if (!isCustomer && !isRider) notFound()
@@ -39,9 +46,11 @@ export default async function ChatRoute({ params }: { params: Promise<{ orderId:
   if (!riderUserId) redirect(`/orders/${orderId}`)
 
   const receiverId = isCustomer ? riderUserId : order.customer_id
-  const receiverName = isCustomer
-    ? ((order.rider as { users: { full_name: string } } | null)?.users?.full_name ?? 'Rider')
-    : ((order.customer as { full_name: string } | null)?.full_name ?? 'Customer')
+  const riderUsers = riderObj?.users
+  const riderName = Array.isArray(riderUsers) ? (riderUsers[0]?.full_name ?? 'Rider') : (riderUsers?.full_name ?? 'Rider')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const customerName = ((order.customer as any)?.full_name as string | undefined) ?? 'Customer'
+  const receiverName = isCustomer ? riderName : customerName
 
   return (
     <ChatPage
