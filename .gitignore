@@ -8,3 +8,4 @@ build
 .env.production
 *.tsbuildinfo
 .DS_Store
+supabase/.temp
