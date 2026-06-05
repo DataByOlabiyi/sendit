@@ -2,14 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "cd ../.. && pnpm turbo build --filter=@sendit/web",
   "installCommand": "pnpm install",
-  "outputDirectory": ".next",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@sendit-supabase-url",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@sendit-supabase-anon-key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@sendit-service-role-key",
-    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "@sendit-google-maps-key",
-    "NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY": "@sendit-paystack-public-key",
-    "PAYSTACK_SECRET_KEY": "@sendit-paystack-secret-key",
-    "NEXT_PUBLIC_APP_URL": "@sendit-web-url"
-  }
+  "outputDirectory": ".next"
 }
