@@ -5,7 +5,14 @@ export const metadata: Metadata = {
   title: 'Create Account',
 }
 
-export default function RegisterPage() {
+export default async function RegisterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ role?: string }>
+}) {
+  const { role } = await searchParams
+  const initialRole = role === 'rider' ? 'rider' : 'customer'
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-white px-4 py-12">
       <div className="w-full max-w-md">
@@ -16,9 +23,11 @@ export default function RegisterPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-          <p className="text-sm text-gray-500 mt-1">Start sending packages today</p>
+          <p className="text-sm text-gray-500 mt-1">
+            {initialRole === 'rider' ? 'Start earning with SendIt today' : 'Start sending packages today'}
+          </p>
         </div>
-        <RegisterForm />
+        <RegisterForm initialRole={initialRole} />
       </div>
     </div>
   )

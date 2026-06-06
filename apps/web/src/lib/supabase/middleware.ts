@@ -54,7 +54,7 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  const publicRoutes = [
+  const authRoutes = [
     '/auth/login',
     '/auth/register',
     '/auth/forgot-password',
@@ -63,7 +63,9 @@ export async function updateSession(request: NextRequest) {
     '/auth/verify',
   ]
 
-  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
+  const isLandingPage = pathname === '/'
+  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route))
+  const isPublicRoute = isLandingPage || isAuthRoute
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone()
@@ -77,15 +79,17 @@ export async function updateSession(request: NextRequest) {
     // layer. The handle_new_user trigger now guarantees the value is either
     // 'customer' or 'rider'; 'admin' can never be set via signup.
     const role = (user.user_metadata?.role as string | undefined) ?? 'customer'
+    const dashboardPath = role === 'rider' ? '/rider/dashboard' : '/dashboard'
 
+    // Authenticated users skip the landing page and auth screens entirely
     if (isPublicRoute) {
       const url = request.nextUrl.clone()
-      url.pathname = role === 'rider' ? '/rider/dashboard' : '/dashboard'
+      url.pathname = dashboardPath
       url.search = ''
       return NextResponse.redirect(url)
     }
 
-    if (role === 'rider' && (pathname === '/' || pathname === '/dashboard')) {
+    if (role === 'rider' && pathname === '/dashboard') {
       const url = request.nextUrl.clone()
       url.pathname = '/rider/dashboard'
       return NextResponse.redirect(url)

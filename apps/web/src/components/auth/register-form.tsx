@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { registerSchema, type RegisterInput } from '@sendit/validations'
 import { registerAction } from '@/app/auth/actions'
 
-export function RegisterForm() {
+export function RegisterForm({ initialRole = 'customer' }: { initialRole?: 'customer' | 'rider' }) {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
@@ -20,7 +20,7 @@ export function RegisterForm() {
     formState: { errors },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { role: 'customer' },
+    defaultValues: { role: initialRole },
   })
 
   const role = watch('role')
