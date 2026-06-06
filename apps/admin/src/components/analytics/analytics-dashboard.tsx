@@ -1,6 +1,7 @@
 'use client'
 
 import { formatCurrency } from '@sendit/utils'
+import { PRICING } from '@sendit/constants'
 
 interface AnalyticsStats {
   totalCustomers: number
@@ -48,7 +49,7 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: Anal
   const revenueByDay = recentPayments.reduce<Record<string, number>>((acc, payment) => {
     if (!payment.paid_at) return acc
     const day = new Date(payment.paid_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })
-    acc[day] = (acc[day] ?? 0) + payment.amount * 0.15
+    acc[day] = (acc[day] ?? 0) + payment.amount * PRICING.PLATFORM_COMMISSION
     return acc
   }, {})
 
@@ -80,7 +81,7 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: Anal
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="text-base font-semibold text-gray-900 mb-1">Platform Revenue (Last 30 Days)</h2>
         <p className="text-3xl font-bold text-orange-500">{formatCurrency(stats.totalRevenue)}</p>
-        <p className="text-xs text-gray-400 mt-1">15% commission on {recentPayments.length} transactions</p>
+        <p className="text-xs text-gray-400 mt-1">{PRICING.PLATFORM_COMMISSION * 100}% commission on {recentPayments.length} transactions</p>
       </div>
 
       {/* Orders chart */}

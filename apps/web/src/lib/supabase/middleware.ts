@@ -1,14 +1,29 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+function missingSupabaseConfig(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  return (
+    !url ||
+    url === 'your_supabase_project_url' ||
+    !key ||
+    key === 'your_supabase_anon_key'
+  )
+}
+
 export async function updateSession(request: NextRequest) {
-  // Skip auth when Supabase credentials are not yet configured
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_project_url' ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY === 'your_supabase_anon_key'
-  ) {
+  if (missingSupabaseConfig()) {
+    // In production a missing config is a deployment error — serve 503 so it's
+    // immediately visible rather than silently bypassing all authentication.
+    if (process.env.NODE_ENV === 'production') {
+      return new NextResponse(
+        'Service Unavailable: Supabase environment variables are not configured.',
+        { status: 503 },
+      )
+    }
+    // In development, allow the request through so the app can be browsed
+    // without credentials (useful for UI-only work).
     return NextResponse.next()
   }
 
@@ -26,11 +41,11 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
+            supabaseResponse.cookies.set(name, value, options),
           )
         },
       },
-    }
+    },
   )
 
   const {
@@ -57,9 +72,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (user) {
-    // Read role from user_metadata (set during registration) — avoids a DB
-    // round-trip on every request. The real RLS/role enforcement happens in
-    // page layouts and server actions; this is only for routing redirects.
+    // user_metadata.role is used only for routing redirects — it is fast (no
+    // DB round-trip) and the real enforcement happens at the RLS / server-action
+    // layer. The handle_new_user trigger now guarantees the value is either
+    // 'customer' or 'rider'; 'admin' can never be set via signup.
     const role = (user.user_metadata?.role as string | undefined) ?? 'customer'
 
     if (isPublicRoute) {

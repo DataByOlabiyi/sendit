@@ -15,12 +15,17 @@ export async function loginAction(data: LoginInput) {
 
   if (error) {
     if (error.message === 'Email not confirmed') {
-      return { error: 'Please check your email inbox and click the verification link before signing in.' }
+      return {
+        error:
+          'Please check your email inbox and click the verification link before signing in.',
+      }
     }
     return { error: error.message }
   }
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   if (!user) return { error: 'Authentication failed.' }
 
   const { data: profile } = await supabase
@@ -47,7 +52,9 @@ export async function registerAction(data: RegisterInput) {
       data: {
         full_name: data.full_name,
         phone: data.phone,
-        role: data.role,
+        // Only 'customer' and 'rider' are forwarded; the handle_new_user trigger
+        // ignores any other value and defaults to 'customer'.
+        role: data.role === 'rider' ? 'rider' : 'customer',
       },
     },
   })
@@ -73,14 +80,14 @@ export async function logoutAction() {
 export async function forgotPasswordAction(email: string) {
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  // Attempt the reset regardless — do not surface whether the email exists.
+  // Returning different responses for registered vs unregistered emails
+  // allows enumeration of valid accounts.
+  await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/reset-password`,
   })
 
-  if (error) {
-    return { error: error.message }
-  }
-
+  // Always return success to prevent email enumeration
   return { success: true }
 }
 

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { AnalyticsDashboard } from '@/components/analytics/analytics-dashboard'
+import { PRICING } from '@sendit/constants'
 
 export const metadata: Metadata = { title: 'Analytics' }
 
@@ -37,7 +38,8 @@ export default async function AnalyticsPage() {
       .order('paid_at', { ascending: true }),
   ])
 
-  const totalRevenue = recentPayments?.reduce((sum, p) => sum + p.amount * 0.15, 0) ?? 0
+  const totalRevenue =
+    recentPayments?.reduce((sum, p) => sum + p.amount * PRICING.PLATFORM_COMMISSION, 0) ?? 0
   const completionRate = totalOrders ? Math.round(((completedOrders ?? 0) / totalOrders) * 100) : 0
 
   return (

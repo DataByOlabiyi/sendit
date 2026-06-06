@@ -1,5 +1,20 @@
 import { z } from 'zod'
 
+// --- Shared primitives -------------------------------------------------------
+
+// Reusable coordinate validators with geographic range enforcement.
+// Prevents clients from supplying out-of-range values that could manipulate
+// pricing calculations or produce nonsensical haversine results.
+const latSchema = z
+  .number({ invalid_type_error: 'Latitude must be a number' })
+  .min(-90, 'Latitude must be ≥ -90')
+  .max(90, 'Latitude must be ≤ 90')
+
+const lngSchema = z
+  .number({ invalid_type_error: 'Longitude must be a number' })
+  .min(-180, 'Longitude must be ≥ -180')
+  .max(180, 'Longitude must be ≤ 180')
+
 // --- Auth --------------------------------------------------------------------
 
 export const loginSchema = z.object({
@@ -16,6 +31,7 @@ export const registerSchema = z
       .regex(/^(\+234|0)[789][01]\d{8}$/, 'Enter a valid Nigerian phone number'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirm_password: z.string(),
+    // 'admin' is intentionally excluded — see handle_new_user DB trigger
     role: z.enum(['customer', 'rider']),
   })
   .refine((data) => data.password === data.confirm_password, {
@@ -50,18 +66,21 @@ export const packageDetailsSchema = z.object({
 
 export const createOrderSchema = z.object({
   pickup_address: z.string().min(5, 'Enter a pickup address'),
-  pickup_lat: z.number(),
-  pickup_lng: z.number(),
+  pickup_lat: latSchema,
+  pickup_lng: lngSchema,
   delivery_address: z.string().min(5, 'Enter a delivery address'),
-  delivery_lat: z.number(),
-  delivery_lng: z.number(),
+  delivery_lat: latSchema,
+  delivery_lng: lngSchema,
   package_description: z.string().min(3).max(200),
   package_size: z.enum(['small', 'medium', 'large', 'extra_large']),
   package_weight: z.number().positive().optional(),
   is_fragile: z.boolean().default(false),
   has_insurance: z.boolean().default(false),
   special_instructions: z.string().max(500).optional(),
-  payment_method: z.enum(['paystack', 'wallet', 'cash']),
+  // 'wallet' is excluded — the wallet feature is not yet implemented.
+  // Remove this comment and add 'wallet' back when the wallet top-up and
+  // deduction flows are built.
+  payment_method: z.enum(['paystack', 'cash']),
 })
 
 // --- Profile -----------------------------------------------------------------
@@ -77,8 +96,8 @@ export const updateProfileSchema = z.object({
 export const addressSchema = z.object({
   label: z.string().min(2, 'Enter a label (e.g. Home, Office)'),
   full_address: z.string().min(5, 'Enter the full address'),
-  lat: z.number(),
-  lng: z.number(),
+  lat: latSchema,
+  lng: lngSchema,
   is_default: z.boolean().default(false),
 })
 
@@ -97,6 +116,8 @@ export const reviewSchema = z.object({
   rating: z.number().min(1).max(5),
   comment: z.string().max(500).optional(),
 })
+
+// --- Inferred types ----------------------------------------------------------
 
 export type LoginInput = z.infer<typeof loginSchema>
 export type RegisterInput = z.infer<typeof registerSchema>
