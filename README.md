@@ -42,6 +42,56 @@ sendit/
 | Payments | Paystack (NGN) |
 | Maps | Google Maps API (degrades gracefully without a key) |
 
+## System architecture
+
+SendIt has no dedicated backend server. The backend is **Supabase** — PostgreSQL with Row Level Security, Auth, Realtime WebSockets, and Storage. The two Next.js apps talk to Supabase directly via the SDK; the only custom server code is two thin API routes that proxy Paystack's payment API so the secret key never reaches the browser.
+
+```
+Browser / PWA
+    │
+    ├── apps/web (port 3000)        ← Customer + Rider  (role split in middleware)
+    └── apps/admin (port 3001)      ← Admin only        (role checked in middleware)
+           │
+    ┌──────┴────────────────────────────────────────┐
+    │           packages/  (compile-time only)       │
+    │   types · constants · validations · utils · ui │
+    └──────┬────────────────────────────────────────┘
+           │
+    ┌──────▼────────────────────────────────────────┐
+    │                   Supabase                     │
+    │   PostgreSQL + RLS  ·  Auth  ·  Realtime       │
+    │   Storage (4 buckets)                          │
+    └──────┬────────────────────────────────────────┘
+           │
+    ┌──────▼────────────────────────────────────────┐
+    │              External services                 │
+    │   Paystack (NGN payments)                      │
+    │   Google Maps API (geocoding / autocomplete)   │
+    └───────────────────────────────────────────────┘
+```
+
+### Key data flows
+
+- **Auth** — Supabase issues a JWT on login. The Next.js middleware reads the session cookie, checks `user_metadata.role`, and redirects to the correct route group (`/(customer)/`, `/rider/`, or the admin app). No extra DB call on every request.
+- **Order lifecycle** — Customers create orders via direct Supabase inserts (RLS enforces ownership). Riders subscribe to the `orders` table via Realtime and accept/update status through the same SDK. Every status change is timestamped by a Postgres trigger.
+- **Payments** — `POST /api/paystack/initialize` creates a pending payment row and returns the Paystack access code. The client redirects to Paystack's hosted page. On return, `POST /api/paystack/verify` calls Paystack's API server-side, then updates both the `payments` and `orders` rows atomically.
+- **Live tracking** — Riders push GPS coordinates to `order_tracking` via Supabase Realtime. The customer's `/track/[id]` page subscribes to the same channel and renders updates on the map without polling.
+
+### Where to find things
+
+| Concern | File |
+|---|---|
+| Database schema & enums | `supabase/migrations/20240101000000_initial_schema.sql` |
+| Row Level Security policies | `supabase/migrations/20240101000001_rls_policies.sql` |
+| Storage bucket config | `supabase/migrations/20240101000002_storage.sql` |
+| Supabase browser client | `apps/web/src/lib/supabase/client.ts` |
+| Supabase server client | `apps/web/src/lib/supabase/server.ts` |
+| Auth + role-based routing | `apps/web/src/lib/supabase/middleware.ts` |
+| Payment API routes | `apps/web/src/app/api/paystack/` |
+| Shared TypeScript types | `packages/types/src/index.ts` |
+| Pricing calculation | `packages/utils/src/index.ts` |
+| Zod validation schemas | `packages/validations/src/index.ts` |
+
 ## Prerequisites
 
 - Node ≥ 20

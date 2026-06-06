@@ -1,15 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { formatCurrency } from '@sendit/utils'
-import { calculatePricing, haversineDistance } from '@sendit/utils'
+import { formatCurrency, calculatePricing, haversineDistance } from '@sendit/utils'
 import { createOrderAction } from '@/app/(customer)/book/actions'
 import { initializePaystackPayment, generatePaystackReference } from '@/lib/paystack'
 import { createClient } from '@/lib/supabase/client'
 import type { BookingData } from './booking-flow'
-import type { PackageSize } from '@sendit/types'
+import type { PackageSize, PricingEstimate } from '@sendit/types'
 
 interface StepConfirmProps {
   data: BookingData
@@ -21,23 +20,72 @@ const paymentOptions = [
   { value: 'cash', label: 'Pay with Cash', icon: '💵' },
 ]
 
-export function StepConfirm({ data, onBack }: StepConfirmProps) {
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'cash'>('paystack')
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-
-  const distanceKm = data.pickup_lat && data.pickup_lng && data.delivery_lat && data.delivery_lng
-    ? haversineDistance(data.pickup_lat, data.pickup_lng, data.delivery_lat, data.delivery_lng)
-    : 5
-
-  const durationMin = Math.ceil(distanceKm * 4)
-
-  const pricing = calculatePricing(
+function clientFallbackPricing(data: BookingData): PricingEstimate {
+  const distanceKm =
+    data.pickup_lat && data.pickup_lng && data.delivery_lat && data.delivery_lng
+      ? haversineDistance(data.pickup_lat, data.pickup_lng, data.delivery_lat, data.delivery_lng)
+      : 5
+  return calculatePricing(
     distanceKm,
     (data.package_size ?? 'small') as PackageSize,
     data.has_insurance ?? false,
-    durationMin
+    Math.ceil(distanceKm * 4)
   )
+}
+
+export function StepConfirm({ data, onBack }: StepConfirmProps) {
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'cash'>('paystack')
+  const [isLoading, setIsLoading] = useState(false)
+  const [pricing, setPricing] = useState<PricingEstimate>(() => clientFallbackPricing(data))
+  const [isPricingLoading, setIsPricingLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    async function fetchPricing() {
+      if (!data.pickup_lat || !data.pickup_lng || !data.delivery_lat || !data.delivery_lng) {
+        setPricing(clientFallbackPricing(data))
+        setIsPricingLoading(false)
+        return
+      }
+
+      setIsPricingLoading(true)
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/pricing`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            },
+            body: JSON.stringify({
+              pickup_lat: data.pickup_lat,
+              pickup_lng: data.pickup_lng,
+              delivery_lat: data.delivery_lat,
+              delivery_lng: data.delivery_lng,
+              package_size: data.package_size ?? 'small',
+              has_insurance: data.has_insurance ?? false,
+            }),
+          }
+        )
+        if (res.ok) {
+          setPricing(await res.json())
+        }
+      } catch {
+        // Edge Function unavailable — fall back to client-side calculation
+      } finally {
+        setIsPricingLoading(false)
+      }
+    }
+    fetchPricing()
+  }, [
+    data.pickup_lat,
+    data.pickup_lng,
+    data.delivery_lat,
+    data.delivery_lng,
+    data.package_size,
+    data.has_insurance,
+  ])
 
   async function handleConfirm() {
     if (!data.pickup_address || !data.delivery_address || !data.package_description || !data.package_size) {
@@ -231,10 +279,10 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         <button
           type="button"
           onClick={handleConfirm}
-          disabled={isLoading}
+          disabled={isLoading || isPricingLoading}
           className="flex-1 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-2xl transition"
         >
-          {isLoading ? 'Processing...' : `Pay ${formatCurrency(pricing.total_fee)}`}
+          {isLoading ? 'Processing...' : isPricingLoading ? 'Calculating...' : `Pay ${formatCurrency(pricing.total_fee)}`}
         </button>
       </div>
     </div>
