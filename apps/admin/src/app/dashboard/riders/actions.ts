@@ -63,7 +63,7 @@ export async function suspendRiderAction(riderId: string, reason?: string) {
   return { success: true }
 }
 
-export async function rejectRiderAction(riderId: string) {
+export async function rejectRiderAction(riderId: string, reason?: string) {
   const supabase = await createClient()
 
   const { data: rider } = await supabase
@@ -85,7 +85,7 @@ export async function rejectRiderAction(riderId: string) {
     user_id: rider.user_id,
     type: 'system',
     title: 'Application Not Approved',
-    body: 'Your rider application was not approved at this time. You may reapply after 30 days.',
+    body: reason ?? 'Your rider application was not approved at this time. You may reapply after 30 days.',
     is_read: false,
   })
 

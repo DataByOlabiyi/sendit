@@ -2,13 +2,16 @@
 
 import { useState } from 'react'
 import { formatCurrency, formatDate } from '@sendit/utils'
+import { PRICING } from '@sendit/constants'
 import type { Rider } from '@sendit/types'
 
 interface Payment {
   id: string
   amount: number
+  rider_payout: number | null
   paid_at: string | null
   created_at: string
+  orders?: { reference: string | null } | null
 }
 
 interface RiderEarningsProps {
@@ -21,12 +24,12 @@ type Period = 'today' | 'week' | 'month' | 'all'
 export function RiderEarnings({ payments, rider }: RiderEarningsProps) {
   const [period, setPeriod] = useState<Period>('week')
 
-  function filterByPeriod(period: Period): Payment[] {
+  function filterByPeriod(p: Period): Payment[] {
     const now = new Date()
-    return payments.filter((p) => {
-      if (!p.paid_at) return false
-      const paidAt = new Date(p.paid_at)
-      switch (period) {
+    return payments.filter((payment) => {
+      if (!payment.paid_at) return false
+      const paidAt = new Date(payment.paid_at)
+      switch (p) {
         case 'today': {
           const today = new Date(now)
           today.setHours(0, 0, 0, 0)
@@ -48,8 +51,12 @@ export function RiderEarnings({ payments, rider }: RiderEarningsProps) {
     })
   }
 
+  function payoutFor(p: Payment): number {
+    return p.rider_payout ?? p.amount * (1 - PRICING.PLATFORM_COMMISSION)
+  }
+
   const filtered = filterByPeriod(period)
-  const totalEarnings = filtered.reduce((sum, p) => sum + p.amount * 0.85, 0)
+  const totalEarnings = filtered.reduce((sum, p) => sum + payoutFor(p), 0)
   const totalOrders = filtered.length
 
   const periods: { value: Period; label: string }[] = [
@@ -89,7 +96,7 @@ export function RiderEarnings({ payments, rider }: RiderEarningsProps) {
           <p className="text-2xl font-bold text-gray-900 mt-1">{totalOrders}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Total Deliveries</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">All-time</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{rider.total_deliveries}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -101,11 +108,13 @@ export function RiderEarnings({ payments, rider }: RiderEarningsProps) {
       {/* Commission note */}
       <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-6">
         <p className="text-xs text-orange-700">
-          <strong>Commission:</strong> You earn 85% of each delivery fee. The remaining 15% is the platform fee.
+          <strong>Earnings split:</strong> You receive{' '}
+          {Math.round((1 - PRICING.PLATFORM_COMMISSION) * 100)}% of each delivery fee.
+          The remaining {Math.round(PRICING.PLATFORM_COMMISSION * 100)}% is the platform fee.
         </p>
       </div>
 
-      {/* Transaction list */}
+      {/* Transaction ledger */}
       <h2 className="text-base font-semibold text-gray-900 mb-3">Transactions</h2>
       {filtered.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
@@ -114,17 +123,29 @@ export function RiderEarnings({ payments, rider }: RiderEarningsProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((payment) => (
-            <div key={payment.id} className="flex items-center justify-between bg-white rounded-xl border border-gray-100 p-4">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Delivery completed</p>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {payment.paid_at ? formatDate(payment.paid_at) : formatDate(payment.created_at)}
-                </p>
+          {filtered.map((payment) => {
+            const payout = payoutFor(payment)
+            const orderRef = payment.orders?.reference ?? null
+            return (
+              <div key={payment.id} className="bg-white rounded-xl border border-gray-100 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900">Delivery completed</p>
+                    {orderRef && (
+                      <p className="text-xs text-gray-400 font-mono mt-0.5">{orderRef}</p>
+                    )}
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {payment.paid_at ? formatDate(payment.paid_at) : formatDate(payment.created_at)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-base font-bold text-green-600">+{formatCurrency(payout)}</p>
+                    <p className="text-xs text-gray-400">of {formatCurrency(payment.amount)}</p>
+                  </div>
+                </div>
               </div>
-              <p className="text-base font-bold text-green-600">+{formatCurrency(payment.amount * 0.85)}</p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

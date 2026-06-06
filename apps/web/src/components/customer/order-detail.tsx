@@ -1,20 +1,31 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { formatCurrency, formatDate, formatTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import { ORDER_STATUS_LABELS } from '@sendit/constants'
+import { ReviewPrompt } from './review-prompt'
 import type { Order, OrderStatus } from '@sendit/types'
 
 const statusSteps: OrderStatus[] = ['pending', 'accepted', 'picked_up', 'in_transit', 'delivered']
 
 interface OrderDetailProps {
-  order: Order
+  order: Order & {
+    reference?: string | null
+    rider?: { full_name: string } | null
+    hasExistingReview?: boolean
+  }
 }
 
 export function OrderDetail({ order }: OrderDetailProps) {
   const currentStepIndex = statusSteps.indexOf(order.status as OrderStatus)
   const isCancelled = order.status === 'cancelled'
+  const isDelivered = order.status === 'delivered'
+  const canTrack = ['accepted', 'picked_up', 'in_transit'].includes(order.status)
+  const [podExpanded, setPodExpanded] = useState(false)
+
+  const displayRef = (order.reference as string | null | undefined) ?? order.id.slice(0, 8).toUpperCase()
 
   return (
     <div className="px-4 py-6 lg:px-8 max-w-2xl mx-auto">
@@ -30,10 +41,20 @@ export function OrderDetail({ order }: OrderDetailProps) {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Order Details</h1>
-          <p className="text-xs text-gray-400 mt-0.5 font-mono">{order.id.slice(0, 8).toUpperCase()}</p>
+          <p className="text-xs text-gray-400 mt-0.5 font-mono">{displayRef}</p>
         </div>
         <StatusBadge status={order.status} />
       </div>
+
+      {/* Cancelled banner */}
+      {isCancelled && (
+        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-4">
+          <p className="text-sm font-medium text-red-700">This order was cancelled</p>
+          {order.cancelled_reason && (
+            <p className="text-xs text-red-500 mt-1">{order.cancelled_reason}</p>
+          )}
+        </div>
+      )}
 
       {/* Status Timeline */}
       {!isCancelled && (
@@ -66,11 +87,39 @@ export function OrderDetail({ order }: OrderDetailProps) {
         </div>
       )}
 
-      {isCancelled && (
-        <div className="bg-red-50 border border-red-100 rounded-2xl p-4 mb-4">
-          <p className="text-sm font-medium text-red-700">This order was cancelled</p>
-          {order.cancelled_reason && (
-            <p className="text-xs text-red-500 mt-1">{order.cancelled_reason}</p>
+      {/* Proof of delivery */}
+      {isDelivered && order.proof_of_delivery_url && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Proof of Delivery</h2>
+          {podExpanded ? (
+            <div>
+              <img
+                src={order.proof_of_delivery_url}
+                alt="Proof of delivery"
+                className="w-full rounded-xl object-cover max-h-80"
+              />
+              <button
+                onClick={() => setPodExpanded(false)}
+                className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+              >
+                Collapse
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setPodExpanded(true)}
+              className="flex items-center gap-3 w-full text-left"
+            >
+              <img
+                src={order.proof_of_delivery_url}
+                alt="Proof of delivery thumbnail"
+                className="w-16 h-16 rounded-xl object-cover shrink-0"
+              />
+              <div>
+                <p className="text-sm font-medium text-gray-900">Photo taken on delivery</p>
+                <p className="text-xs text-orange-500 mt-0.5">Tap to expand</p>
+              </div>
+            </button>
           )}
         </div>
       )}
@@ -154,11 +203,18 @@ export function OrderDetail({ order }: OrderDetailProps) {
         <p className="text-xs text-gray-400 mt-3">{formatDate(order.created_at)} at {formatTime(order.created_at)}</p>
       </div>
 
-      {/* Actions */}
-      {(order.status === 'in_transit' || order.status === 'accepted' || order.status === 'picked_up') && (
+      {/* Review prompt — shown after delivery when no review submitted yet */}
+      {isDelivered && !order.hasExistingReview && order.rider && (
+        <div className="mb-4">
+          <ReviewPrompt orderId={order.id} riderName={order.rider.full_name} />
+        </div>
+      )}
+
+      {/* Track Live */}
+      {canTrack && (
         <Link
           href={`/track/${order.id}`}
-          className="flex items-center justify-center gap-2 w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-2xl transition"
+          className="flex items-center justify-center gap-2 w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-2xl transition mb-4"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />

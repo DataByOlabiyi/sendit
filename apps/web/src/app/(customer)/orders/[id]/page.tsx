@@ -13,19 +13,39 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   const { data: order } = await supabase
     .from('orders')
-    .select('*')
+    .select('*, riders(id, user_id, users(full_name))')
     .eq('id', id)
     .eq('customer_id', user!.id)
     .single()
 
   if (!order) notFound()
 
+  // Check if customer has already reviewed this order
+  const { data: existingReview } = await supabase
+    .from('reviews')
+    .select('id')
+    .eq('order_id', id)
+    .eq('reviewer_id', user!.id)
+    .maybeSingle()
+
+  const riderData = order.riders as { id: string; user_id: string; users: { full_name: string } | null } | null
+
+  const enrichedOrder = {
+    ...order,
+    rider: riderData?.users ?? null,
+    hasExistingReview: !!existingReview,
+  }
+
   return (
-    <div className="px-4 py-6 lg:px-8 max-w-2xl mx-auto">
-      <OrderDetail order={order} />
+    <div>
+      <OrderDetail order={enrichedOrder} />
       {order.status === 'pending' && (
-        <div className="mt-4">
-          <CancelButton orderId={order.id} />
+        <div className="px-4 pb-8 max-w-2xl mx-auto">
+          <CancelButton
+            orderId={order.id}
+            isPaid={order.payment_status === 'paid'}
+            totalFee={order.total_fee}
+          />
         </div>
       )}
     </div>

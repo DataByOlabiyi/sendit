@@ -23,12 +23,9 @@ export function ForgotPasswordForm() {
   async function onSubmit(data: ForgotPasswordInput) {
     setIsLoading(true)
     try {
-      const result = await forgotPasswordAction(data.email)
-      if (result?.error) {
-        toast.error(result.error)
-      } else {
-        setSent(true)
-      }
+      await forgotPasswordAction(data.email)
+      // Action always returns success to prevent email enumeration
+      setSent(true)
     } catch {
       toast.error('Something went wrong. Please try again.')
     } finally {

@@ -6,10 +6,86 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { riderProfileSchema, type RiderProfileInput } from '@sendit/validations'
-import { createRiderProfileAction } from '@/app/rider/actions'
+import { createRiderProfileAction, uploadRiderDocumentAction } from '@/app/rider/actions'
+import { createClient } from '@/lib/supabase/client'
+
+interface DocUploadState {
+  file: File | null
+  url: string | null
+  isUploading: boolean
+}
+
+function DocUpload({
+  label,
+  hint,
+  state,
+  onFileChange,
+}: {
+  label: string
+  hint: string
+  state: DocUploadState
+  onFileChange: (file: File) => void
+}) {
+  const hasPreview = !!state.url
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1.5">{label}</label>
+      <p className="text-xs text-gray-400 mb-2">{hint}</p>
+      <label className="block cursor-pointer">
+        <input
+          type="file"
+          accept="image/*,application/pdf"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) onFileChange(f)
+          }}
+          className="sr-only"
+        />
+        <div className={`relative border-2 border-dashed rounded-xl transition ${
+          hasPreview ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-orange-300 bg-gray-50'
+        }`}>
+          {hasPreview ? (
+            <div className="flex items-center gap-3 p-4">
+              {state.url && state.file?.type.startsWith('image/') ? (
+                <img src={state.url} alt={label} className="w-14 h-14 rounded-lg object-cover shrink-0" />
+              ) : (
+                <div className="w-14 h-14 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-green-700">✓ Uploaded</p>
+                <p className="text-xs text-gray-500 truncate">{state.file?.name}</p>
+              </div>
+              <p className="text-xs text-orange-500 shrink-0">Tap to replace</p>
+            </div>
+          ) : state.isUploading ? (
+            <div className="flex items-center justify-center gap-2 p-6">
+              <span className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm text-gray-500">Uploading...</span>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-6 text-center">
+              <svg className="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              <p className="text-sm text-gray-500">Tap to upload</p>
+              <p className="text-xs text-gray-400 mt-0.5">JPG, PNG or PDF</p>
+            </div>
+          )}
+        </div>
+      </label>
+    </div>
+  )
+}
 
 export function RiderOnboardingForm() {
   const [isLoading, setIsLoading] = useState(false)
+  const [licenseDoc, setLicenseDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
+  const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
   const router = useRouter()
 
   const { register, handleSubmit, formState: { errors } } = useForm<RiderProfileInput>({
@@ -17,16 +93,65 @@ export function RiderOnboardingForm() {
     defaultValues: { vehicle_type: 'motorcycle' },
   })
 
+  async function uploadDoc(
+    file: File,
+    docType: 'license' | 'vehicle',
+    setState: React.Dispatch<React.SetStateAction<DocUploadState>>,
+  ) {
+    setState((prev) => ({ ...prev, file, isUploading: true }))
+
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Not authenticated'); return }
+
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user.id}/${docType}-${Date.now()}.${ext}`
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('rider-documents')
+        .upload(path, file, { upsert: true })
+
+      if (uploadError) { toast.error(`Failed to upload ${docType} document`); return }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('rider-documents')
+        .getPublicUrl(uploadData.path)
+
+      setState({ file, url: publicUrl, isUploading: false })
+    } catch {
+      toast.error('Upload failed')
+      setState((prev) => ({ ...prev, isUploading: false }))
+    }
+  }
+
   async function onSubmit(data: RiderProfileInput) {
+    if (!licenseDoc.url) {
+      toast.error('Please upload your driver\'s license')
+      return
+    }
+    if (!vehicleDoc.url) {
+      toast.error('Please upload your vehicle registration document')
+      return
+    }
+
     setIsLoading(true)
     try {
       const result = await createRiderProfileAction(data)
       if (result.error) {
         toast.error(result.error)
-      } else {
-        toast.success('Profile created! Awaiting admin approval.')
-        router.push('/rider/dashboard')
+        setIsLoading(false)
+        return
       }
+
+      // Save document URLs to the newly created rider record
+      await Promise.all([
+        uploadRiderDocumentAction('license', licenseDoc.url!),
+        uploadRiderDocumentAction('vehicle', vehicleDoc.url!),
+      ])
+
+      toast.success('Profile submitted! Awaiting admin approval.')
+      router.push('/rider/dashboard')
     } catch {
       toast.error('Something went wrong')
     } finally {
@@ -84,15 +209,34 @@ export function RiderOnboardingForm() {
           {errors.license_number && <p className="mt-1.5 text-xs text-red-500">{errors.license_number.message}</p>}
         </div>
 
+        {/* Document uploads */}
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900">Verification Documents</h3>
+
+          <DocUpload
+            label="Driver's License"
+            hint="Upload a clear photo of your valid driver's license (front)"
+            state={licenseDoc}
+            onFileChange={(f) => uploadDoc(f, 'license', setLicenseDoc)}
+          />
+
+          <DocUpload
+            label="Vehicle Registration"
+            hint="Upload your vehicle registration certificate or proof of ownership"
+            state={vehicleDoc}
+            onFileChange={(f) => uploadDoc(f, 'vehicle', setVehicleDoc)}
+          />
+        </div>
+
         <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3">
           <p className="text-xs text-yellow-700">
-            <strong>Note:</strong> Your account will be reviewed by an admin before you can start accepting orders. This usually takes 24-48 hours.
+            <strong>Note:</strong> Your account will be reviewed by an admin. This usually takes 24–48 hours after document submission.
           </p>
         </div>
 
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={isLoading || licenseDoc.isUploading || vehicleDoc.isUploading}
           className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-xl transition text-sm"
         >
           {isLoading ? 'Submitting...' : 'Submit for Review'}

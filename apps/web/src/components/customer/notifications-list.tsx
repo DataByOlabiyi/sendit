@@ -1,10 +1,12 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { formatRelativeTime } from '@sendit/utils'
 import type { Notification } from '@sendit/types'
 
 interface NotificationsListProps {
   notifications: Notification[]
+  userRole?: 'customer' | 'rider'
 }
 
 const typeIcons: Record<string, string> = {
@@ -15,7 +17,26 @@ const typeIcons: Record<string, string> = {
   system: '⚙️',
 }
 
-export function NotificationsList({ notifications }: NotificationsListProps) {
+function getDeepLink(notification: Notification, userRole: 'customer' | 'rider'): string | null {
+  const data = notification.data as Record<string, string> | null
+  const orderId = data?.order_id
+
+  if (!orderId) return null
+
+  if (notification.type === 'order_update' || notification.type === 'payment') {
+    return userRole === 'rider' ? `/rider/orders/${orderId}` : `/orders/${orderId}`
+  }
+
+  if (notification.type === 'chat_message') {
+    return `/chat/${orderId}`
+  }
+
+  return null
+}
+
+export function NotificationsList({ notifications, userRole = 'customer' }: NotificationsListProps) {
+  const router = useRouter()
+
   if (notifications.length === 0) {
     return (
       <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
@@ -32,13 +53,11 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
 
   return (
     <div className="space-y-2">
-      {notifications.map((notification) => (
-        <div
-          key={notification.id}
-          className={`bg-white rounded-2xl border p-4 ${
-            !notification.is_read ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'
-          }`}
-        >
+      {notifications.map((notification) => {
+        const deepLink = getDeepLink(notification, userRole)
+        const isClickable = !!deepLink
+
+        const inner = (
           <div className="flex items-start gap-3">
             <span className="text-2xl shrink-0">{typeIcons[notification.type] ?? '🔔'}</span>
             <div className="flex-1 min-w-0">
@@ -46,16 +65,48 @@ export function NotificationsList({ notifications }: NotificationsListProps) {
                 <p className={`text-sm font-medium ${!notification.is_read ? 'text-gray-900' : 'text-gray-700'}`}>
                   {notification.title}
                 </p>
-                {!notification.is_read && (
-                  <div className="w-2 h-2 rounded-full bg-orange-500 shrink-0 mt-1" />
-                )}
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!notification.is_read && (
+                    <div className="w-2 h-2 rounded-full bg-orange-500" />
+                  )}
+                  {isClickable && (
+                    <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                    </svg>
+                  )}
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">{notification.body}</p>
               <p className="text-xs text-gray-400 mt-1">{formatRelativeTime(notification.created_at)}</p>
             </div>
           </div>
-        </div>
-      ))}
+        )
+
+        if (isClickable) {
+          return (
+            <button
+              key={notification.id}
+              onClick={() => router.push(deepLink!)}
+              className={`w-full text-left bg-white rounded-2xl border p-4 hover:border-orange-200 hover:bg-orange-50/20 transition cursor-pointer ${
+                !notification.is_read ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'
+              }`}
+            >
+              {inner}
+            </button>
+          )
+        }
+
+        return (
+          <div
+            key={notification.id}
+            className={`bg-white rounded-2xl border p-4 ${
+              !notification.is_read ? 'border-orange-200 bg-orange-50/30' : 'border-gray-100'
+            }`}
+          >
+            {inner}
+          </div>
+        )
+      })}
     </div>
   )
 }

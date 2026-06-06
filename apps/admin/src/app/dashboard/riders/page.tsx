@@ -9,7 +9,7 @@ export default async function RidersPage() {
 
   const { data: riders } = await supabase
     .from('riders')
-    .select('*, users!riders_user_id_fkey(full_name, email, phone, is_active)')
+    .select('*, users!riders_user_id_fkey(full_name, email, phone, is_active), license_doc_url, vehicle_doc_url')
     .order('created_at', { ascending: false })
 
   return (

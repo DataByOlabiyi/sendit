@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
+import { PRICING } from '@sendit/constants'
 import { StatusBadge } from '@sendit/ui'
 import {
   acceptOrderAction,
   updateOrderStatusAction,
   uploadProofOfDeliveryAction,
-  updateRiderLocationAction,
 } from '@/app/rider/actions'
 import { createClient } from '@/lib/supabase/client'
 import type { Order, OrderStatus } from '@sendit/types'
@@ -45,9 +45,18 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
     setIsTrackingLocation(true)
     const watchId = navigator.geolocation.watchPosition(
       async (position) => {
-        await updateRiderLocationAction(position.coords.latitude, position.coords.longitude)
+        // Lightweight PATCH instead of Server Action — avoids Next.js RSC
+        // overhead on every GPS ping
+        fetch('/api/rider/location', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          }),
+        }).catch(console.error)
 
-        // Also insert into order_tracking
+        // Insert into order_tracking for breadcrumb history
         const supabase = createClient()
         await supabase.from('order_tracking').insert({
           order_id: order.id,
@@ -96,8 +105,10 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         }
 
         // Upload image to Supabase Storage
+        // Path format: {order_id}/{filename} — matches the storage policy which
+        // uses (storage.foldername(name))[1] to scope access to order parties.
         const supabase = createClient()
-        const fileName = `${order.id}-${Date.now()}.jpg`
+        const fileName = `${order.id}/${Date.now()}.jpg`
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('proof-of-delivery')
           .upload(fileName, proofImage)
@@ -165,9 +176,9 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 mb-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">Your earnings</p>
-            <p className="text-xl font-bold text-orange-500">{formatCurrency(order.total_fee * 0.85)}</p>
+            <p className="text-xl font-bold text-orange-500">{formatCurrency(order.total_fee * (1 - PRICING.PLATFORM_COMMISSION))}</p>
           </div>
-          <p className="text-xs text-gray-400 mt-0.5">85% of {formatCurrency(order.total_fee)}</p>
+          <p className="text-xs text-gray-400 mt-0.5">{Math.round((1 - PRICING.PLATFORM_COMMISSION) * 100)}% of {formatCurrency(order.total_fee)}</p>
         </div>
       )}
 
@@ -261,9 +272,9 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
       {/* Proof of delivery upload */}
       {isOwnOrder && order.status === 'in_transit' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Proof of Delivery</h2>
-          <p className="text-xs text-gray-500 mb-3">Take a photo of the delivered package or recipient</p>
-          <label className="block">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">Proof of Delivery</h2>
+          <p className="text-xs text-gray-500 mb-3">Take a clear photo of the delivered package or recipient</p>
+          <label className="block cursor-pointer">
             <input
               type="file"
               accept="image/*"
@@ -271,24 +282,31 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
               onChange={(e) => setProofImage(e.target.files?.[0] ?? null)}
               className="sr-only"
             />
-            <div className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition ${
-              proofImage ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-orange-300'
-            }`}>
-              {proofImage ? (
-                <div>
-                  <p className="text-sm font-medium text-green-600">✓ Photo selected</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{proofImage.name}</p>
+            {proofImage ? (
+              <div className="rounded-xl overflow-hidden border-2 border-green-400">
+                <img
+                  src={URL.createObjectURL(proofImage)}
+                  alt="Proof of delivery preview"
+                  className="w-full max-h-64 object-cover"
+                />
+                <div className="bg-green-50 px-4 py-2 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-medium text-green-700">✓ Photo ready</p>
+                    <p className="text-xs text-gray-500 truncate max-w-48">{proofImage.name}</p>
+                  </div>
+                  <p className="text-xs text-orange-500">Tap to retake</p>
                 </div>
-              ) : (
-                <div>
-                  <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
-                  </svg>
-                  <p className="text-sm text-gray-500">Tap to take photo</p>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-200 hover:border-orange-300 rounded-xl p-6 text-center transition">
+                <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+                </svg>
+                <p className="text-sm text-gray-500">Tap to take photo</p>
+                <p className="text-xs text-gray-400 mt-0.5">Required to complete delivery</p>
+              </div>
+            )}
           </label>
         </div>
       )}

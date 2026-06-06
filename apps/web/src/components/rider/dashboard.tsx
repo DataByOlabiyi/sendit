@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { formatCurrency, formatRelativeTime, formatDistance, formatDuration, haversineDistance } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
+import { PRICING } from '@sendit/constants'
 import { toggleOnlineStatusAction } from '@/app/rider/actions'
 import type { Rider, Order } from '@sendit/types'
 
@@ -24,7 +25,8 @@ export function RiderDashboard({ rider, availableOrders, activeOrders, todayEarn
     try {
       const result = await toggleOnlineStatusAction(!isOnline)
       if (result.error) {
-        toast.error(result.error)
+        // Show as a prominent warning if blocked by active delivery
+        toast.error(result.error, { duration: 5000 })
       } else {
         setIsOnline(!isOnline)
         toast.success(isOnline ? 'You are now offline' : 'You are now online')
@@ -163,7 +165,7 @@ export function RiderDashboard({ rider, availableOrders, activeOrders, todayEarn
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-base font-bold text-orange-500">{formatCurrency(order.total_fee * 0.85)}</p>
+                      <p className="text-base font-bold text-orange-500">{formatCurrency(order.total_fee * (1 - PRICING.PLATFORM_COMMISSION))}</p>
                       <p className="text-xs text-gray-400">your cut</p>
                     </div>
                   </div>

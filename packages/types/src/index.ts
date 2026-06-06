@@ -12,7 +12,8 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
-export type PaymentMethod = 'paystack' | 'wallet' | 'cash'
+// 'wallet' removed until the wallet top-up and deduction flows are implemented
+export type PaymentMethod = 'paystack' | 'cash'
 
 export type VehicleType = 'bicycle' | 'motorcycle' | 'car' | 'van'
 
@@ -55,6 +56,8 @@ export interface Rider {
   current_lng: number | null
   rating: number
   total_deliveries: number
+  license_doc_url: string | null
+  vehicle_doc_url: string | null
   created_at: string
   updated_at: string
 }
@@ -73,6 +76,7 @@ export interface Address {
 
 export interface Order {
   id: string
+  reference: string
   customer_id: string
   rider_id: string | null
   pickup_address_id: string | null
@@ -128,6 +132,8 @@ export interface Payment {
   status: PaymentStatus
   paystack_reference: string | null
   paystack_access_code: string | null
+  platform_fee: number
+  rider_payout: number
   paid_at: string | null
   created_at: string
   updated_at: string

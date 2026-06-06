@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { Providers } from '@/components/providers'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { InstallPrompt } from '@/components/pwa/install-prompt'
+import { RealtimeConnectionBanner } from '@/components/ui/realtime-connection-banner'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.variable}>
         <Providers>
+          <RealtimeConnectionBanner />
           {children}
           <Toaster position="top-center" richColors closeButton />
           <InstallPrompt />

@@ -1,7 +1,10 @@
+// deno-lint-ignore-file no-explicit-any
+// @ts-nocheck — Deno runtime file; type-checked by Deno LSP, not tsc
+import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { haversineDistance } from '../_shared/haversine.ts'
 
-// Mirror of packages/constants PRICING — update both together if tiers change
-const PRICING = {
+const FALLBACK_PRICING = {
   BASE_FEE: 500,
   PER_KM_FEE: 100,
   INSURANCE_FEE: 200,
@@ -14,16 +17,28 @@ const PACKAGE_SIZE_MULTIPLIER: Record<string, number> = {
   extra_large: 2,
 }
 
-function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371
-  const dLat = ((lat2 - lat1) * Math.PI) / 180
-  const dLng = ((lng2 - lng1) * Math.PI) / 180
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLng / 2) ** 2
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+async function loadPricing() {
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+    )
+    const { data } = await supabase
+      .from('platform_config')
+      .select('key, value')
+      .in('key', ['base_fee', 'per_km_fee', 'insurance_fee'])
+
+    if (!data || data.length === 0) return FALLBACK_PRICING
+
+    const map = Object.fromEntries(data.map((r: { key: string; value: string }) => [r.key, Number(r.value)]))
+    return {
+      BASE_FEE: map.base_fee ?? FALLBACK_PRICING.BASE_FEE,
+      PER_KM_FEE: map.per_km_fee ?? FALLBACK_PRICING.PER_KM_FEE,
+      INSURANCE_FEE: map.insurance_fee ?? FALLBACK_PRICING.INSURANCE_FEE,
+    }
+  } catch {
+    return FALLBACK_PRICING
+  }
 }
 
 Deno.serve(async (req) => {
@@ -46,6 +61,7 @@ Deno.serve(async (req) => {
       })
     }
 
+    const PRICING = await loadPricing()
     const distanceKm = haversineDistance(pickup_lat, pickup_lng, delivery_lat, delivery_lng)
     const durationMin = Math.ceil(distanceKm * 4)
     const multiplier = PACKAGE_SIZE_MULTIPLIER[package_size] ?? 1
@@ -63,7 +79,7 @@ Deno.serve(async (req) => {
         estimated_distance_km: Math.round(distanceKm * 10) / 10,
         estimated_duration_min: durationMin,
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     )
   } catch {
     return new Response(JSON.stringify({ error: 'Invalid request body' }), {
