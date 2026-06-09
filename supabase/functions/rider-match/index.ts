@@ -76,6 +76,8 @@ Deno.serve(async (req) => {
     })
   }
 
+  const compatible = VEHICLE_COMPAT[order.package_size] ?? VEHICLE_COMPAT['small']
+
   const { data: riders } = await supabase
     .from('riders')
     .select('id, user_id, vehicle_type, rating, total_deliveries, current_lat, current_lng')
@@ -83,6 +85,7 @@ Deno.serve(async (req) => {
     .eq('status', 'approved')
     .not('current_lat', 'is', null)
     .not('current_lng', 'is', null)
+    .in('vehicle_type', compatible)
 
   if (!riders || riders.length === 0) {
     return new Response(JSON.stringify({ riders: [] }), {
@@ -90,10 +93,7 @@ Deno.serve(async (req) => {
     })
   }
 
-  const compatible = VEHICLE_COMPAT[order.package_size] ?? VEHICLE_COMPAT['small']
-
   const ranked = riders
-    .filter((r) => compatible.includes(r.vehicle_type))
     .map((r) => {
       const distance_km =
         Math.round(

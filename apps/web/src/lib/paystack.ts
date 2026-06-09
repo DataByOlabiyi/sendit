@@ -3,7 +3,7 @@
 export interface PaystackConfig {
   key: string
   email: string
-  amount: number // in kobo (multiply NGN by 100)
+  amount: number // in NGN — initializePaystackPayment converts to kobo internally
   reference: string
   currency?: string
   metadata?: Record<string, unknown>
@@ -20,6 +20,7 @@ declare global {
         amount: number
         ref: string
         currency: string
+        channels?: string[]
         metadata?: Record<string, unknown>
         callback: (response: { reference: string }) => void
         onClose: () => void
@@ -51,6 +52,9 @@ export async function initializePaystackPayment(config: PaystackConfig): Promise
     amount: config.amount * 100, // convert to kobo
     ref: config.reference,
     currency: config.currency ?? 'NGN',
+    // Enable all available channels so Nigerian users can pay via USSD,
+    // bank transfer, or mobile money — not only cards
+    channels: ['card', 'bank', 'ussd', 'bank_transfer', 'mobile_money', 'qr'],
     metadata: config.metadata,
     callback: (response) => {
       config.onSuccess(response.reference)

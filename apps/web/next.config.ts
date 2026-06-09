@@ -15,6 +15,10 @@ const nextConfig: NextConfig = {
         hostname: '*.supabase.co',
       },
     ],
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [640, 828, 1080, 1200, 1920],
+    imageSizes: [16, 32, 64, 96, 128, 256],
+    minimumCacheTTL: 31536000,  // 1 year for proof-of-delivery and document images
   },
   async headers() {
     return [

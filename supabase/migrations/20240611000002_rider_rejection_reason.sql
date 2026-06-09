@@ -1,0 +1,1 @@
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS rejection_reason TEXT;

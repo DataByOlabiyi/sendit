@@ -7,6 +7,7 @@ import { calculatePricing, haversineDistance } from '@sendit/utils'
 import { createOrderSchema } from '@sendit/validations'
 import type { PackageSize } from '@sendit/types'
 
+
 export async function createOrderAction(data: unknown) {
   const supabase = await createClient()
   const {
@@ -23,21 +24,85 @@ export async function createOrderAction(data: unknown) {
 
   const validData = parsed.data
 
-  const distanceKm = haversineDistance(
-    validData.pickup_lat,
-    validData.pickup_lng,
-    validData.delivery_lat,
-    validData.delivery_lng,
-  )
+  // Fetch canonical pricing from the edge function (uses Google Maps road distance).
+  // Fall back to Haversine only if the edge function is unavailable.
+  type PricingResult = {
+    base_fee: number
+    distance_fee: number
+    insurance_fee: number
+    total_fee: number
+    estimated_distance_km: number
+    estimated_duration_min: number
+  }
 
-  const durationMin = Math.ceil(distanceKm * 4)
+  let pricing: PricingResult
+  try {
+    const pricingRes = await fetch(
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/pricing`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({
+          pickup_lat: validData.pickup_lat,
+          pickup_lng: validData.pickup_lng,
+          delivery_lat: validData.delivery_lat,
+          delivery_lng: validData.delivery_lng,
+          package_size: validData.package_size,
+          has_insurance: validData.has_insurance,
+        }),
+        signal: AbortSignal.timeout(8_000),
+      },
+    )
+    if (!pricingRes.ok) throw new Error(`Pricing function ${pricingRes.status}`)
+    pricing = await pricingRes.json()
+  } catch {
+    const distanceKm = haversineDistance(
+      validData.pickup_lat,
+      validData.pickup_lng,
+      validData.delivery_lat,
+      validData.delivery_lng,
+    )
+    const durationMin = Math.ceil(distanceKm * 4)
+    pricing = calculatePricing(
+      distanceKm,
+      validData.package_size as PackageSize,
+      validData.has_insurance,
+      durationMin,
+    )
+  }
 
-  const pricing = calculatePricing(
-    distanceKm,
-    validData.package_size as PackageSize,
-    validData.has_insurance,
-    durationMin,
-  )
+  // Re-validate the promo server-side — never trust the client-supplied discount amount.
+  // The client passes promo_id; we recalculate the discount ourselves.
+  let promoDiscount = 0
+  if (validData.promo_id) {
+    const { data: promo } = await supabase
+      .from('promo_codes')
+      .select('id, type, value, max_uses, uses_count, min_order_value, valid_until, scope, target_user_id')
+      .eq('id', validData.promo_id)
+      .eq('is_active', true)
+      .single()
+
+    if (promo) {
+      const now = new Date()
+      const isValid =
+        (!promo.valid_until || new Date(promo.valid_until) >= now) &&
+        (promo.max_uses === null || promo.uses_count < promo.max_uses) &&
+        (promo.scope !== 'single_user' || promo.target_user_id === user.id) &&
+        pricing.total_fee >= promo.min_order_value
+
+      if (isValid) {
+        promoDiscount =
+          promo.type === 'flat'
+            ? Math.min(promo.value, pricing.total_fee)
+            : Math.floor((pricing.total_fee * promo.value) / 10_000)
+      }
+    }
+  }
+
+  const discountedTotal = Math.max(0, pricing.total_fee - promoDiscount)
 
   const { data: order, error } = await supabase
     .from('orders')
@@ -49,6 +114,7 @@ export async function createOrderAction(data: unknown) {
       delivery_address: validData.delivery_address,
       delivery_lat: validData.delivery_lat,
       delivery_lng: validData.delivery_lng,
+      delivery_landmark: validData.delivery_landmark ?? null,
       package_description: validData.package_description,
       package_size: validData.package_size,
       package_weight: validData.package_weight ?? null,
@@ -61,7 +127,7 @@ export async function createOrderAction(data: unknown) {
       base_fee: pricing.base_fee,
       distance_fee: pricing.distance_fee,
       insurance_fee: pricing.insurance_fee,
-      total_fee: pricing.total_fee,
+      total_fee: discountedTotal,
       status: 'pending',
       payment_status: 'pending',
     })
@@ -73,11 +139,19 @@ export async function createOrderAction(data: unknown) {
     return { error: 'Failed to create order. Please try again.' }
   }
 
-  if (validData.payment_method === 'cash') {
-    redirect(`/orders/${order.id}`)
+  // Record promo redemption using the server-calculated discount amount.
+  if (validData.promo_id && promoDiscount > 0) {
+    const admin = createAdminClient()
+    await admin.from('promo_redemptions').insert({
+      promo_id: validData.promo_id,
+      user_id: user.id,
+      order_id: order.id,
+      discount_amount: promoDiscount,
+    })
+    // Trigger on promo_redemptions handles uses_count increment
   }
 
-  return { orderId: order.id, totalFee: pricing.total_fee }
+  return { orderId: order.id, totalFee: discountedTotal }
 }
 
 export async function cancelOrderAction(orderId: string, reason?: string) {

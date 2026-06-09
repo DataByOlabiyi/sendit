@@ -6,6 +6,7 @@ import { formatCurrency, formatDate, formatTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import { ORDER_STATUS_LABELS } from '@sendit/constants'
 import { ReviewPrompt } from './review-prompt'
+import { DisputeForm } from './dispute-form'
 import type { Order, OrderStatus } from '@sendit/types'
 
 const statusSteps: OrderStatus[] = ['pending', 'accepted', 'picked_up', 'in_transit', 'delivered']
@@ -14,6 +15,7 @@ interface OrderDetailProps {
   order: Order & {
     reference?: string | null
     rider?: { full_name: string } | null
+    riderId?: string | null
     hasExistingReview?: boolean
   }
 }
@@ -23,7 +25,9 @@ export function OrderDetail({ order }: OrderDetailProps) {
   const isCancelled = order.status === 'cancelled'
   const isDelivered = order.status === 'delivered'
   const canTrack = ['accepted', 'picked_up', 'in_transit'].includes(order.status)
+  const canDispute = ['in_transit', 'delivered', 'failed_delivery'].includes(order.status)
   const [podExpanded, setPodExpanded] = useState(false)
+  const [showDisputeForm, setShowDisputeForm] = useState(false)
 
   const displayRef = (order.reference as string | null | undefined) ?? order.id.slice(0, 8).toUpperCase()
 
@@ -222,6 +226,31 @@ export function OrderDetail({ order }: OrderDetailProps) {
           </svg>
           Track Live
         </Link>
+      )}
+
+      {/* Dispute */}
+      {canDispute && (
+        <div className="mb-4">
+          {showDisputeForm ? (
+            <div className="bg-white rounded-2xl border border-gray-100 p-5">
+              <h2 className="text-sm font-semibold text-gray-900 mb-4">File a Dispute</h2>
+              <DisputeForm
+                orderId={order.id}
+                riderId={order.riderId ?? null}
+                onSuccess={() => setShowDisputeForm(false)}
+                onCancel={() => setShowDisputeForm(false)}
+              />
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDisputeForm(true)}
+              className="w-full py-3 text-sm font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded-2xl transition border border-gray-200"
+            >
+              Report a Problem
+            </button>
+          )}
+        </div>
       )}
     </div>
   )

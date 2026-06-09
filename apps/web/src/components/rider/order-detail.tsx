@@ -9,9 +9,12 @@ import { PRICING } from '@sendit/constants'
 import { StatusBadge } from '@sendit/ui'
 import {
   acceptOrderAction,
-  updateOrderStatusAction,
+  advanceOrderStatusAction,
   uploadProofOfDeliveryAction,
-} from '@/app/rider/actions'
+  markFailedDeliveryAction,
+  markReturnInProgressAction,
+  markOrderReturnedAction,
+} from '@/app/rider/order-actions'
 import { createClient } from '@/lib/supabase/client'
 import type { Order, OrderStatus } from '@sendit/types'
 
@@ -30,6 +33,8 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [proofImage, setProofImage] = useState<File | null>(null)
   const [isTrackingLocation, setIsTrackingLocation] = useState(false)
+  const [showFailureModal, setShowFailureModal] = useState(false)
+  const [failureReason, setFailureReason] = useState('')
   const router = useRouter()
 
   const isOwnOrder = order.rider_id === riderId
@@ -131,7 +136,7 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
           router.refresh()
         }
       } else {
-        const result = await updateOrderStatusAction(order.id, next.status)
+        const result = await advanceOrderStatusAction(order.id, next.status)
         if (result.error) {
           toast.error(result.error)
         } else {
@@ -144,6 +149,46 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function handleFailedDelivery() {
+    if (!failureReason.trim()) return
+    setIsLoading(true)
+    setShowFailureModal(false)
+    try {
+      const result = await markFailedDeliveryAction(order.id, failureReason)
+      if (result.error) toast.error(result.error)
+      else { toast.success('Delivery marked as failed'); router.refresh() }
+    } catch { toast.error('Something went wrong') }
+    finally { setIsLoading(false) }
+  }
+
+  async function handleReturnInProgress() {
+    setIsLoading(true)
+    try {
+      const result = await markReturnInProgressAction(order.id)
+      if (result.error) toast.error(result.error)
+      else { toast.success('Returning package to sender'); router.refresh() }
+    } catch { toast.error('Something went wrong') }
+    finally { setIsLoading(false) }
+  }
+
+  async function handleReturned() {
+    if (!proofImage) { toast.error('Please upload proof of return'); return }
+    setIsLoading(true)
+    try {
+      const supabase = createClient()
+      const fileName = `${order.id}/return-${Date.now()}.jpg`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('proof-of-delivery')
+        .upload(fileName, proofImage)
+      if (uploadError) { toast.error('Failed to upload photo'); setIsLoading(false); return }
+      const { data: { publicUrl } } = supabase.storage.from('proof-of-delivery').getPublicUrl(uploadData.path)
+      const result = await markOrderReturnedAction(order.id, publicUrl)
+      if (result.error) toast.error(result.error)
+      else { toast.success('Package returned to sender'); router.refresh() }
+    } catch { toast.error('Something went wrong') }
+    finally { setIsLoading(false) }
   }
 
   return (
@@ -333,13 +378,108 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
           </button>
         )}
 
+        {/* Failed delivery button — shown when in_transit */}
+        {isOwnOrder && order.status === 'in_transit' && (
+          <button
+            onClick={() => setShowFailureModal(true)}
+            disabled={isLoading}
+            className="w-full py-3 border-2 border-red-200 text-red-600 font-semibold rounded-2xl hover:bg-red-50 transition disabled:opacity-60 text-sm"
+          >
+            Could Not Deliver
+          </button>
+        )}
+
+        {/* Return workflow */}
+        {isOwnOrder && order.status === 'failed_delivery' && (
+          <div className="space-y-3">
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+              <p className="text-sm font-semibold text-red-700">Delivery Failed</p>
+              <p className="text-xs text-red-500 mt-0.5">{order.failure_reason}</p>
+            </div>
+            <button
+              onClick={handleReturnInProgress}
+              disabled={isLoading}
+              className="w-full py-3.5 bg-gray-700 hover:bg-gray-800 disabled:opacity-60 text-white font-semibold rounded-2xl transition"
+            >
+              {isLoading ? 'Updating...' : 'Start Return to Sender'}
+            </button>
+          </div>
+        )}
+
+        {isOwnOrder && order.status === 'return_in_progress' && (
+          <div className="space-y-3">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
+              <p className="text-sm font-semibold text-yellow-800">Returning package to sender</p>
+              <p className="text-xs text-yellow-600 mt-0.5">Upload proof once the package is returned</p>
+            </div>
+            {/* Reuse proof upload UI */}
+            <label className="block cursor-pointer">
+              <input type="file" accept="image/*" capture="environment"
+                onChange={(e) => setProofImage(e.target.files?.[0] ?? null)}
+                className="sr-only" />
+              <div className={`border-2 border-dashed rounded-xl p-4 text-center transition ${proofImage ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-orange-300'}`}>
+                <p className="text-sm text-gray-500">{proofImage ? `✓ ${proofImage.name}` : 'Tap to take return photo'}</p>
+              </div>
+            </label>
+            <button
+              onClick={handleReturned}
+              disabled={isLoading || !proofImage}
+              className="w-full py-3.5 bg-gray-700 hover:bg-gray-800 disabled:opacity-60 text-white font-semibold rounded-2xl transition"
+            >
+              {isLoading ? 'Completing...' : 'Confirm Package Returned'}
+            </button>
+          </div>
+        )}
+
         {order.status === 'delivered' && order.proof_of_delivery_url && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center">
             <p className="text-sm font-semibold text-green-700">✓ Delivery Completed</p>
             <p className="text-xs text-green-500 mt-0.5">{formatRelativeTime(order.delivered_at ?? order.updated_at)}</p>
           </div>
         )}
+
+        {order.status === 'returned' && (
+          <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 text-center">
+            <p className="text-sm font-semibold text-gray-700">Package Returned to Sender</p>
+            <p className="text-xs text-gray-500 mt-0.5">{formatRelativeTime(order.updated_at)}</p>
+          </div>
+        )}
       </div>
+
+      {/* Failed delivery reason modal */}
+      {showFailureModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowFailureModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 z-10">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Could Not Complete Delivery</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Tell us what happened. The customer will be notified and a refund may be processed.
+            </p>
+            <textarea
+              value={failureReason}
+              onChange={(e) => setFailureReason(e.target.value)}
+              placeholder="e.g. Customer not at home, wrong address, gate locked..."
+              rows={3}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowFailureModal(false)}
+                className="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleFailedDelivery}
+                disabled={!failureReason.trim() || isLoading}
+                className="flex-1 py-3 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-semibold rounded-xl transition text-sm"
+              >
+                Confirm Failure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

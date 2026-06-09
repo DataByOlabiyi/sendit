@@ -17,14 +17,26 @@ export default async function RiderEarningsPage() {
 
   if (!rider) redirect('/rider/onboarding')
 
-  const { data: rawPayments } = await supabase
-    .from('payments')
-    .select('id, amount, rider_payout, paid_at, created_at, orders!inner(rider_id, reference)')
-    .eq('orders.rider_id', rider.id)
-    .eq('status', 'paid')
-    .order('paid_at', { ascending: false })
+  const [{ data: rawPayments }, { data: wallet }, { data: payouts }] = await Promise.all([
+    supabase
+      .from('payments')
+      .select('id, amount, rider_payout, paid_at, created_at, orders!inner(rider_id, reference)')
+      .eq('orders.rider_id', rider.id)
+      .eq('status', 'paid')
+      .order('paid_at', { ascending: false }),
+    supabase
+      .from('rider_wallets')
+      .select('balance, total_earned, total_paid')
+      .eq('rider_id', rider.id)
+      .single(),
+    supabase
+      .from('rider_payouts')
+      .select('id, amount, status, initiated_at, completed_at, failure_reason')
+      .eq('rider_id', rider.id)
+      .order('initiated_at', { ascending: false })
+      .limit(10),
+  ])
 
-  // Normalize the nested orders field — Supabase returns it as an array from the join
   const payments = (rawPayments ?? []).map((p) => {
     const orderData = Array.isArray(p.orders) ? p.orders[0] : p.orders
     return {
@@ -41,9 +53,14 @@ export default async function RiderEarningsPage() {
     <div className="px-4 py-6 lg:px-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">My Earnings</h1>
-        <p className="text-sm text-gray-500 mt-1">Track your income</p>
+        <p className="text-sm text-gray-500 mt-1">Track your income and request payouts</p>
       </div>
-      <RiderEarnings payments={payments ?? []} rider={rider} />
+      <RiderEarnings
+        payments={payments ?? []}
+        rider={rider}
+        wallet={wallet ?? null}
+        recentPayouts={payouts ?? []}
+      />
     </div>
   )
 }

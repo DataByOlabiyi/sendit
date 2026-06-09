@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { formatCurrency } from '@sendit/utils'
 import { PRICING } from '@sendit/constants'
 
@@ -30,7 +31,61 @@ interface AnalyticsDashboardProps {
   recentPayments: RecentPayment[]
 }
 
+type Range = 7 | 30 | 90
+
+function buildDays(range: Range): string[] {
+  return Array.from({ length: range }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (range - 1 - i))
+    return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })
+  })
+}
+
+function bucketByDay(items: { date: string; value: number }[]): Record<string, number> {
+  return items.reduce<Record<string, number>>((acc, { date, value }) => {
+    acc[date] = (acc[date] ?? 0) + value
+    return acc
+  }, {})
+}
+
+function BarChart({ days, data, color, formatVal }: {
+  days: string[]
+  data: Record<string, number>
+  color: string
+  formatVal: (v: number) => string
+}) {
+  const values = days.map((d) => data[d] ?? 0)
+  const max = Math.max(...values, 1)
+  // Show every Nth label to avoid crowding
+  const labelEvery = days.length > 30 ? 7 : days.length > 14 ? 4 : 1
+
+  return (
+    <div className="flex items-end gap-0.5 h-32">
+      {days.map((day, i) => {
+        const count = values[i]
+        const height = Math.max((count / max) * 100, 2)
+        const showLabel = i % labelEvery === 0 || i === days.length - 1
+        return (
+          <div key={day} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
+            {count > 0 && (
+              <span className="text-xs font-medium text-gray-600 truncate w-full text-center leading-none">
+                {formatVal(count)}
+              </span>
+            )}
+            <div className={`w-full ${color} rounded-t transition-all`} style={{ height: `${height}%` }} />
+            {showLabel && (
+              <span className="text-xs text-gray-400 truncate w-full text-center leading-none">{day}</span>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: AnalyticsDashboardProps) {
+  const [range, setRange] = useState<Range>(7)
+
   const statCards = [
     { label: 'Total Customers', value: stats.totalCustomers.toLocaleString(), color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Total Riders', value: stats.totalRiders.toLocaleString(), color: 'text-purple-600', bg: 'bg-purple-50' },
@@ -40,27 +95,24 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: Anal
     { label: 'Completion Rate', value: `${stats.completionRate}%`, color: 'text-orange-600', bg: 'bg-orange-50' },
   ]
 
-  const ordersByDay = recentOrders.reduce<Record<string, number>>((acc, order) => {
-    const day = new Date(order.created_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })
-    acc[day] = (acc[day] ?? 0) + 1
-    return acc
-  }, {})
+  const orderItems = recentOrders.map((o) => ({
+    date: new Date(o.created_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' }),
+    value: 1,
+  }))
 
-  const revenueByDay = recentPayments.reduce<Record<string, number>>((acc, payment) => {
-    if (!payment.paid_at) return acc
-    const day = new Date(payment.paid_at).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })
-    acc[day] = (acc[day] ?? 0) + payment.amount * PRICING.PLATFORM_COMMISSION
-    return acc
-  }, {})
+  const revenueItems = recentPayments
+    .filter((p) => p.paid_at)
+    .map((p) => ({
+      date: new Date(p.paid_at!).toLocaleDateString('en-NG', { month: 'short', day: 'numeric' }),
+      value: p.amount * PRICING.PLATFORM_COMMISSION,
+    }))
 
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric' })
-  })
+  const days = buildDays(range)
+  const ordersByDay = bucketByDay(orderItems)
+  const revenueByDay = bucketByDay(revenueItems)
 
-  const maxOrders = Math.max(...last7Days.map((d) => ordersByDay[d] ?? 0), 1)
-  const maxRevenue = Math.max(...last7Days.map((d) => revenueByDay[d] ?? 0), 1)
+  const windowRevenue = days.reduce((sum, d) => sum + (revenueByDay[d] ?? 0), 0)
+  const windowOrders = days.reduce((sum, d) => sum + (ordersByDay[d] ?? 0), 0)
 
   return (
     <div className="space-y-6">
@@ -77,55 +129,52 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: Anal
         ))}
       </div>
 
+      {/* Date range selector */}
+      <div className="flex gap-2">
+        {([7, 30, 90] as Range[]).map((r) => (
+          <button
+            key={r}
+            onClick={() => setRange(r)}
+            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+              range === r ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300'
+            }`}
+          >
+            {r} days
+          </button>
+        ))}
+      </div>
+
       {/* Revenue summary */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">Platform Revenue (Last 30 Days)</h2>
-        <p className="text-3xl font-bold text-orange-500">{formatCurrency(stats.totalRevenue)}</p>
-        <p className="text-xs text-gray-400 mt-1">{PRICING.PLATFORM_COMMISSION * 100}% commission on {recentPayments.length} transactions</p>
+        <h2 className="text-base font-semibold text-gray-900 mb-1">
+          Platform Revenue — Last {range} Days
+        </h2>
+        <p className="text-3xl font-bold text-orange-500">{formatCurrency(windowRevenue)}</p>
+        <p className="text-xs text-gray-400 mt-1">
+          {PRICING.PLATFORM_COMMISSION * 100}% commission on {windowOrders} orders
+        </p>
       </div>
 
       {/* Orders chart */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Orders — Last 7 Days</h2>
-        <div className="flex items-end gap-2 h-32">
-          {last7Days.map((day) => {
-            const count = ordersByDay[day] ?? 0
-            const height = maxOrders > 0 ? Math.max((count / maxOrders) * 100, 4) : 4
-            return (
-              <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-xs font-medium text-gray-600">{count || ''}</span>
-                <div
-                  className="w-full bg-orange-500 rounded-t-lg transition-all"
-                  style={{ height: `${height}%` }}
-                />
-                <span className="text-xs text-gray-400 truncate w-full text-center">{day}</span>
-              </div>
-            )
-          })}
-        </div>
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Orders — Last {range} Days</h2>
+        <BarChart
+          days={days}
+          data={ordersByDay}
+          color="bg-orange-500"
+          formatVal={(v) => String(v)}
+        />
       </div>
 
       {/* Revenue chart */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h2 className="text-base font-semibold text-gray-900 mb-4">Revenue — Last 7 Days</h2>
-        <div className="flex items-end gap-2 h-32">
-          {last7Days.map((day) => {
-            const revenue = revenueByDay[day] ?? 0
-            const height = maxRevenue > 0 ? Math.max((revenue / maxRevenue) * 100, 4) : 4
-            return (
-              <div key={day} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-xs font-medium text-gray-600">
-                  {revenue > 0 ? `₦${Math.round(revenue / 1000)}k` : ''}
-                </span>
-                <div
-                  className="w-full bg-green-500 rounded-t-lg transition-all"
-                  style={{ height: `${height}%` }}
-                />
-                <span className="text-xs text-gray-400 truncate w-full text-center">{day}</span>
-              </div>
-            )
-          })}
-        </div>
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Revenue — Last {range} Days</h2>
+        <BarChart
+          days={days}
+          data={revenueByDay}
+          color="bg-green-500"
+          formatVal={(v) => v > 1000 ? `₦${Math.round(v / 1000)}k` : `₦${Math.round(v)}`}
+        />
       </div>
     </div>
   )

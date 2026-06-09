@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { loadGoogleMaps } from '@/lib/google-maps'
 import { formatRelativeTime } from '@sendit/utils'
 
 interface LiveTrackingMapProps {
@@ -16,7 +17,7 @@ interface LiveTrackingMapProps {
   orderStatus: string
 }
 
-interface Location {
+interface RiderLocation {
   lat: number
   lng: number
   updatedAt: string | null
@@ -33,106 +34,227 @@ export function LiveTrackingMap({
   deliveryAddress,
   orderStatus,
 }: LiveTrackingMapProps) {
-  const [riderLocation, setRiderLocation] = useState<Location | null>(null)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<google.maps.Map | null>(null)
+  const riderMarkerRef = useRef<google.maps.Marker | null>(null)
+
   const [isConnected, setIsConnected] = useState(false)
-  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const [riderLocation, setRiderLocation] = useState<RiderLocation | null>(null)
+  const [mapReady, setMapReady] = useState(false)
+  const [mapError, setMapError] = useState(false)
 
+  // ── Initialize the Google Map once ──────────────────────────────────────────
   useEffect(() => {
-    const supabase = createClient()
+    let cancelled = false
 
-    async function fetchInitialLocation() {
-      if (!riderId) return
+    // Capture prop values before the async chain so TypeScript can trace usage
+    const pickup   = { lat: pickupLat,   lng: pickupLng }
+    const delivery = { lat: deliveryLat, lng: deliveryLng }
 
-      const { data } = await supabase
-        .from('riders')
-        .select('current_lat, current_lng, updated_at')
-        .eq('id', riderId)
-        .single()
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapContainerRef.current) return
 
-      if (data?.current_lat && data?.current_lng) {
-        setRiderLocation({
-          lat: data.current_lat,
-          lng: data.current_lng,
-          updatedAt: data.updated_at,
+        const map = new google.maps.Map(mapContainerRef.current, {
+          center: pickup,
+          zoom: 13,
+          disableDefaultUI: true,
+          zoomControl: true,
+          gestureHandling: 'cooperative',
+          styles: [
+            { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+            { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+          ],
         })
-      }
-    }
+        mapRef.current = map
 
-    fetchInitialLocation()
+        // Pickup marker — orange circle
+        new google.maps.Marker({
+          position: pickup,
+          map,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 9,
+            fillColor: '#f97316',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          },
+          title: `Pickup: ${pickupAddress}`,
+          zIndex: 2,
+        })
 
+        // Delivery marker — dark circle
+        new google.maps.Marker({
+          position: delivery,
+          map,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 9,
+            fillColor: '#111827',
+            fillOpacity: 1,
+            strokeColor: '#ffffff',
+            strokeWeight: 2,
+          },
+          title: `Delivery: ${deliveryAddress}`,
+          zIndex: 2,
+        })
+
+        // Dashed route line pickup → delivery
+        new google.maps.Polyline({
+          path: [pickup, delivery],
+          geodesic: true,
+          strokeColor: '#f97316',
+          strokeOpacity: 0,
+          icons: [
+            {
+              icon: { path: 'M 0,-1 0,1', strokeOpacity: 0.6, strokeColor: '#f97316', scale: 3 },
+              offset: '0',
+              repeat: '14px',
+            },
+          ],
+          map,
+        })
+
+        // Fit map to show both endpoints
+        const bounds = new google.maps.LatLngBounds()
+        bounds.extend(pickup)
+        bounds.extend(delivery)
+        map.fitBounds(bounds, { top: 48, right: 32, bottom: 32, left: 32 })
+
+        setMapReady(true)
+      })
+      .catch(() => {
+        if (!cancelled) setMapError(true)
+      })
+
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // run once — pickup/delivery coords are stable after mount
+
+  // ── Fetch initial rider position + subscribe to live updates ────────────────
+  useEffect(() => {
     if (!riderId) return
 
-    // Subscribe to rider table updates for location changes
+    const supabase = createClient()
+
+    supabase
+      .from('riders')
+      .select('current_lat, current_lng, updated_at')
+      .eq('id', riderId)
+      .single()
+      .then(({ data }) => {
+        if (data?.current_lat && data?.current_lng) {
+          setRiderLocation({ lat: data.current_lat, lng: data.current_lng, updatedAt: data.updated_at })
+        }
+      })
+
     const channel = supabase
       .channel(`rider_loc:${riderId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'riders',
-          filter: `id=eq.${riderId}`,
-        },
+        { event: 'UPDATE', schema: 'public', table: 'riders', filter: `id=eq.${riderId}` },
         (payload) => {
           const r = payload.new as { current_lat: number | null; current_lng: number | null; updated_at: string }
           if (r.current_lat && r.current_lng) {
-            setRiderLocation({
-              lat: r.current_lat,
-              lng: r.current_lng,
-              updatedAt: r.updated_at,
-            })
+            setRiderLocation({ lat: r.current_lat, lng: r.current_lng, updatedAt: r.updated_at })
           }
         },
       )
-      .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED')
-      })
+      .subscribe((status) => setIsConnected(status === 'SUBSCRIBED'))
 
-    channelRef.current = channel
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [riderId, orderId])
+
+  // ── Update rider marker whenever location changes ───────────────────────────
+  useEffect(() => {
+    if (!riderLocation || !mapRef.current || !mapReady) return
+
+    const pos = { lat: riderLocation.lat, lng: riderLocation.lng }
+
+    if (riderMarkerRef.current) {
+      riderMarkerRef.current.setPosition(pos)
+    } else {
+      const svgIcon = encodeURIComponent(`
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="18" fill="#f97316" stroke="white" stroke-width="2.5"/>
+          <text x="20" y="27" font-size="18" text-anchor="middle" fill="white">🏍</text>
+        </svg>
+      `)
+      riderMarkerRef.current = new google.maps.Marker({
+        position: pos,
+        map: mapRef.current,
+        icon: {
+          url: `data:image/svg+xml;charset=UTF-8,${svgIcon}`,
+          scaledSize: new google.maps.Size(40, 40),
+          anchor: new google.maps.Point(20, 20),
+        },
+        title: 'Rider',
+        zIndex: 10,
+        optimized: false,
+      })
+    }
+
+    // Keep rider in view while active
+    if (['accepted', 'picked_up', 'in_transit'].includes(orderStatus)) {
+      mapRef.current.panTo(pos)
+    }
+  }, [riderLocation, mapReady, orderStatus])
 
   const isDelivered = orderStatus === 'delivered'
   const hasRider = !!riderId
   const hasLocation = !!riderLocation
 
-  // Map center: use rider location if available, else delivery destination
-  const centerLat = riderLocation?.lat ?? deliveryLat
-  const centerLng = riderLocation?.lng ?? deliveryLng
-  const mapSrc = `https://maps.google.com/maps?q=${centerLat},${centerLng}&z=15&output=embed`
-
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      {/* Map */}
-      <div className="relative">
-        <iframe
-          key={`${centerLat},${centerLng}`}
-          src={mapSrc}
-          className="w-full h-64"
-          style={{ border: 0 }}
-          allowFullScreen
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          title="Rider location map"
-        />
 
-        {/* Live badge */}
+      {/* ── Map ─────────────────────────────────────────────────────────────── */}
+      <div className="relative h-64">
+        {mapError ? (
+          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+            <p className="text-sm text-gray-400">Map unavailable</p>
+          </div>
+        ) : (
+          <>
+            <div ref={mapContainerRef} className="w-full h-full" />
+            {!mapReady && (
+              <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+                <span className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Live indicator */}
         {!isDelivered && hasRider && (
-          <div className="absolute top-3 left-3">
-            <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
-              isConnected ? 'bg-green-500 text-white' : 'bg-white text-gray-600 border border-gray-200'
+          <div className="absolute top-3 left-3 z-10 pointer-events-none">
+            <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full shadow-sm ${
+              isConnected
+                ? 'bg-green-500 text-white'
+                : 'bg-white text-gray-600 border border-gray-200'
             }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-white animate-pulse' : 'bg-gray-400'}`} />
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isConnected ? 'bg-white animate-pulse' : 'bg-gray-400'
+              }`} />
               {isConnected ? 'Live' : 'Connecting...'}
             </span>
           </div>
         )}
+
+        {/* Open in Google Maps */}
+        {hasLocation && !isDelivered && (
+          <a
+            href={`https://maps.google.com/?q=${riderLocation!.lat},${riderLocation!.lng}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-3 right-3 z-10 bg-white text-xs font-medium text-gray-700 px-3 py-1.5 rounded-full shadow-sm border border-gray-200 hover:bg-gray-50 transition"
+          >
+            Open in Maps
+          </a>
+        )}
       </div>
 
-      {/* Status info */}
+      {/* ── Status row ──────────────────────────────────────────────────────── */}
       <div className="p-4">
         {isDelivered ? (
           <div className="flex items-center gap-2">
@@ -154,38 +276,21 @@ export function LiveTrackingMap({
         ) : !hasLocation ? (
           <div>
             <p className="text-sm font-medium text-gray-900">Rider assigned</p>
-            <p className="text-xs text-gray-500 mt-0.5">Location will appear once the rider goes online</p>
+            <p className="text-xs text-gray-500 mt-0.5">Location will appear once the rider is on the way</p>
           </div>
         ) : (
-          <div>
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-900">Rider en route</p>
-              {riderLocation.updatedAt && (
-                <p className="text-xs text-gray-400">
-                  Updated {formatRelativeTime(riderLocation.updatedAt)}
-                </p>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5 truncate">→ {deliveryAddress}</p>
-
-            {/* Open in maps */}
-            <a
-              href={`https://maps.google.com/?q=${riderLocation.lat},${riderLocation.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 mt-2 text-xs text-orange-500 hover:text-orange-600 font-medium"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              Open rider location in Maps
-            </a>
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-900">Rider en route</p>
+            {riderLocation.updatedAt && (
+              <p className="text-xs text-gray-400">
+                Updated {formatRelativeTime(riderLocation.updatedAt)}
+              </p>
+            )}
           </div>
         )}
       </div>
 
-      {/* Route summary */}
+      {/* ── Route summary ───────────────────────────────────────────────────── */}
       <div className="px-4 pb-4 pt-2 border-t border-gray-50">
         <div className="flex items-start gap-3">
           <div className="flex flex-col items-center gap-1 pt-0.5">
@@ -205,6 +310,7 @@ export function LiveTrackingMap({
           </div>
         </div>
       </div>
+
     </div>
   )
 }

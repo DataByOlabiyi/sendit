@@ -1,4 +1,4 @@
-import { cn } from '../lib/utils'
+import { cn } from '../lib/cn'
 import type { OrderStatus } from '@sendit/types'
 
 const statusStyles: Record<OrderStatus, string> = {
@@ -8,6 +8,9 @@ const statusStyles: Record<OrderStatus, string> = {
   in_transit: 'bg-orange-100 text-orange-800 border-orange-200',
   delivered: 'bg-green-100 text-green-800 border-green-200',
   cancelled: 'bg-red-100 text-red-800 border-red-200',
+  failed_delivery: 'bg-red-200 text-red-900 border-red-300',
+  return_in_progress: 'bg-amber-100 text-amber-800 border-amber-200',
+  returned: 'bg-gray-100 text-gray-700 border-gray-200',
 }
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -17,6 +20,9 @@ const statusLabels: Record<OrderStatus, string> = {
   in_transit: 'In Transit',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
+  failed_delivery: 'Failed Delivery',
+  return_in_progress: 'Return In Progress',
+  returned: 'Returned',
 }
 
 interface StatusBadgeProps {

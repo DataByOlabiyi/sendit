@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import { Toaster } from 'sonner'
 import { Providers } from '@/components/providers'
 import { ServiceWorkerRegister } from '@/components/pwa/service-worker-register'
 import { InstallPrompt } from '@/components/pwa/install-prompt'
-import { RealtimeConnectionBanner } from '@/components/ui/realtime-connection-banner'
+import { RealtimeStatusBanner } from '@/components/layout/RealtimeStatusBanner'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -48,12 +49,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={inter.variable}>
         <Providers>
-          <RealtimeConnectionBanner />
+          <RealtimeStatusBanner />
           {children}
           <Toaster position="top-center" richColors closeButton />
           <InstallPrompt />
         </Providers>
         <ServiceWorkerRegister />
+        {/* Pre-load Paystack inline script at layout level so payment
+            modal appears instantly on slow Nigerian connections */}
+        <Script
+          src="https://js.paystack.co/v1/inline.js"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   )

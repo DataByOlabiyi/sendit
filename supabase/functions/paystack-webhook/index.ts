@@ -89,6 +89,8 @@ Deno.serve(async (req) => {
 
   if (event.event === 'charge.success') {
     const reference: string = event.data.reference
+    // IMPORTANT: never forward event.data.authorization to any client.
+    // Authorization codes are sensitive card reuse tokens — store server-side only.
 
     // Guard: only transition from pending → paid (idempotency with verify route)
     await supabase
@@ -99,7 +101,7 @@ Deno.serve(async (req) => {
 
     const { data: payment } = await supabase
       .from('payments')
-      .select('order_id')
+      .select('order_id, customer_id')
       .eq('paystack_reference', reference)
       .single()
 
@@ -109,6 +111,25 @@ Deno.serve(async (req) => {
         .update({ payment_status: 'paid' })
         .eq('id', payment.order_id)
         .eq('payment_status', 'pending')
+
+      // Persist the Paystack authorization code (card token) server-side only.
+      // This allows future recurring charges without re-entering card details.
+      // The authorization object is NEVER returned to the client.
+      const auth = event.data.authorization
+      if (auth?.authorization_code && auth?.reusable && payment.customer_id) {
+        await supabase.from('payment_methods').upsert(
+          {
+            user_id: payment.customer_id,
+            type: auth.channel === 'card' ? 'card' : 'bank',
+            label: auth.card_type ? `${auth.card_type} ****${auth.last4}` : auth.bank ?? 'Saved card',
+            last_four: auth.last4 ?? null,
+            bank_name: auth.bank ?? null,
+            paystack_authorization_code: auth.authorization_code,
+            is_default: false,
+          },
+          { onConflict: 'paystack_authorization_code' },
+        ).catch((err: Error) => console.error('Save payment method error:', err))
+      }
 
       // Dispatch nearby riders; idempotent — won't double-notify if verify
       // route already ran.

@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { riderProfileSchema, type RiderProfileInput } from '@sendit/validations'
-import { createRiderProfileAction, uploadRiderDocumentAction } from '@/app/rider/actions'
+import { createRiderProfileAction, uploadRiderDocumentAction } from '@/app/rider/profile-actions'
 import { createClient } from '@/lib/supabase/client'
 
 interface DocUploadState {
@@ -82,7 +82,7 @@ function DocUpload({
   )
 }
 
-export function RiderOnboardingForm() {
+export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
   const [licenseDoc, setLicenseDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
   const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
@@ -209,6 +209,40 @@ export function RiderOnboardingForm() {
           {errors.license_number && <p className="mt-1.5 text-xs text-red-500">{errors.license_number.message}</p>}
         </div>
 
+        {/* KYC: BVN / NIN */}
+        <div className="pt-2 border-t border-gray-100 space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Identity Verification (KYC)</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Required by CBN regulations. Stored securely and never shared.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              BVN <span className="text-gray-400 font-normal">(Bank Verification Number)</span>
+            </label>
+            <input
+              name="bvn"
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              placeholder="11-digit BVN"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              NIN <span className="text-gray-400 font-normal">(National Identification Number)</span>
+            </label>
+            <input
+              name="nin"
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              placeholder="11-digit NIN"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+          </div>
+        </div>
+
         {/* Document uploads */}
         <div className="pt-2 border-t border-gray-100 space-y-4">
           <h3 className="text-sm font-semibold text-gray-900">Verification Documents</h3>
@@ -239,7 +273,7 @@ export function RiderOnboardingForm() {
           disabled={isLoading || licenseDoc.isUploading || vehicleDoc.isUploading}
           className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-xl transition text-sm"
         >
-          {isLoading ? 'Submitting...' : 'Submit for Review'}
+          {isLoading ? 'Submitting...' : isResubmit ? 'Resubmit for Review' : 'Submit for Review'}
         </button>
       </form>
     </div>

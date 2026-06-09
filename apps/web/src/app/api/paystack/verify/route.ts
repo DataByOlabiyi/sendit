@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { dispatchRiderNotifications } from '@/lib/rider-dispatch'
+import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
 
 export async function POST(request: Request) {
   try {
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
 
     // Dispatch: find nearby riders and create in-app notifications.
     // Fire-and-forget — a failure here does not fail the payment response.
-    dispatchRiderNotifications(orderId).catch((err) =>
+    notifyNearbyRidersForOrder(orderId).catch((err) =>
       console.error('Rider dispatch error after verify:', err),
     )
 

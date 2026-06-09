@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { OrderDetail } from '@/components/customer/order-detail'
-import { CancelButton } from './cancel-button'
+import { CancelOrderButton } from '@/components/customer/CancelOrderButton'
 
 export const metadata: Metadata = { title: 'Order Details' }
 
@@ -33,6 +33,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const enrichedOrder = {
     ...order,
     rider: riderData?.users ?? null,
+    riderId: riderData?.id ?? null,
     hasExistingReview: !!existingReview,
   }
 
@@ -41,7 +42,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       <OrderDetail order={enrichedOrder} />
       {order.status === 'pending' && (
         <div className="px-4 pb-8 max-w-2xl mx-auto">
-          <CancelButton
+          <CancelOrderButton
             orderId={order.id}
             isPaid={order.payment_status === 'paid'}
             totalFee={order.total_fee}

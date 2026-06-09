@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import { formatCurrency, formatRelativeTime, formatDistance, formatDuration, haversineDistance } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import { PRICING } from '@sendit/constants'
-import { toggleOnlineStatusAction } from '@/app/rider/actions'
+import { toggleOnlineStatusAction } from '@/app/rider/profile-actions'
 import type { Rider, Order } from '@sendit/types'
 
 interface RiderDashboardProps {

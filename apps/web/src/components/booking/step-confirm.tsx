@@ -17,7 +17,6 @@ interface StepConfirmProps {
 
 const paymentOptions = [
   { value: 'paystack', label: 'Pay with Card', icon: '💳' },
-  { value: 'cash', label: 'Pay with Cash', icon: '💵' },
 ]
 
 function clientFallbackPricing(data: BookingData): PricingEstimate {
@@ -38,6 +37,11 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [pricing, setPricing] = useState<PricingEstimate>(() => clientFallbackPricing(data))
   const [isPricingLoading, setIsPricingLoading] = useState(true)
+  const [promoCode, setPromoCode] = useState('')
+  const [promoDiscount, setPromoDiscount] = useState(0)
+  const [promoId, setPromoId] = useState<string | null>(null)
+  const [promoError, setPromoError] = useState<string | null>(null)
+  const [validatingPromo, setValidatingPromo] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -87,6 +91,28 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
     data.has_insurance,
   ])
 
+  async function handleApplyPromo() {
+    if (!promoCode.trim()) return
+    setValidatingPromo(true)
+    setPromoError(null)
+    try {
+      const res = await fetch('/api/promos/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: promoCode.trim().toUpperCase(), orderTotal: pricing.total_fee }),
+      })
+      const result = await res.json()
+      if (!res.ok) { setPromoError(result.error ?? 'Invalid promo code'); return }
+      setPromoDiscount(result.discount)
+      setPromoId(result.promoId)
+      toast.success(`Promo applied — saving ${formatCurrency(result.discount)}!`)
+    } catch {
+      setPromoError('Could not validate promo code')
+    } finally {
+      setValidatingPromo(false)
+    }
+  }
+
   async function handleConfirm() {
     if (!data.pickup_address || !data.delivery_address || !data.package_description || !data.package_size) {
       toast.error('Please complete all booking steps first')
@@ -103,6 +129,7 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         delivery_address: data.delivery_address,
         delivery_lat: data.delivery_lat ?? 6.5244,
         delivery_lng: data.delivery_lng ?? 3.3792,
+        delivery_landmark: data.delivery_landmark,
         package_description: data.package_description,
         package_size: data.package_size as PackageSize,
         package_weight: data.package_weight,
@@ -110,6 +137,8 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         has_insurance: data.has_insurance ?? false,
         special_instructions: data.special_instructions,
         payment_method: paymentMethod,
+        promo_id: promoId ?? undefined,
+        promo_discount: promoDiscount > 0 ? promoDiscount : undefined,
       })
 
       if (result?.error) {
@@ -118,13 +147,8 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         return
       }
 
-      if (paymentMethod === 'cash') {
-        toast.success('Order placed successfully!')
-        router.push(`/orders/${result.orderId}`)
-        return
-      }
-
-      // Paystack payment
+      // Paystack payment — totalFee already has promo discount applied by the server action
+      const payableAmount = result.totalFee ?? 0
       if (result.orderId && result.totalFee) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
@@ -146,7 +170,7 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         await initializePaystackPayment({
           key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
           email: profile?.email ?? '',
-          amount: result.totalFee,
+          amount: payableAmount,
           reference,
           metadata: { orderId: result.orderId },
           onSuccess: async (ref) => {
@@ -235,23 +259,65 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
               <span>{formatCurrency(pricing.insurance_fee)}</span>
             </div>
           )}
+          {promoDiscount > 0 && (
+            <div className="flex justify-between text-green-600">
+              <span>Promo discount</span>
+              <span>-{formatCurrency(promoDiscount)}</span>
+            </div>
+          )}
           <div className="flex justify-between pt-2 border-t border-gray-100 font-bold text-base">
             <span className="text-gray-900">Total</span>
-            <span className="text-orange-500">{formatCurrency(pricing.total_fee)}</span>
+            <span className="text-orange-500">{formatCurrency(Math.max(0, pricing.total_fee - promoDiscount))}</span>
           </div>
         </div>
+      </div>
+
+      {/* Promo code */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Promo Code</h2>
+        {promoId ? (
+          <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl">
+            <span className="text-green-600 text-sm font-medium">✓ {promoCode.toUpperCase()} applied</span>
+            <button
+              type="button"
+              onClick={() => { setPromoId(null); setPromoDiscount(0); setPromoCode(''); setPromoError(null) }}
+              className="ml-auto text-xs text-gray-400 hover:text-gray-600"
+            >
+              Remove
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={promoCode}
+              onChange={(e) => { setPromoCode(e.target.value); setPromoError(null) }}
+              placeholder="Enter promo code"
+              className="flex-1 px-3 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 uppercase placeholder:normal-case"
+            />
+            <button
+              type="button"
+              onClick={handleApplyPromo}
+              disabled={validatingPromo || !promoCode.trim()}
+              className="px-4 py-2.5 text-sm font-medium text-orange-600 bg-orange-50 rounded-xl hover:bg-orange-100 transition disabled:opacity-50"
+            >
+              {validatingPromo ? '...' : 'Apply'}
+            </button>
+          </div>
+        )}
+        {promoError && <p className="text-xs text-red-500 mt-1.5">{promoError}</p>}
       </div>
 
       {/* Payment */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">Payment Method</h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
           {paymentOptions.map((option) => (
             <button
               key={option.value}
               type="button"
               onClick={() => setPaymentMethod(option.value as 'paystack' | 'cash')}
-              className={`flex items-center gap-3 p-3 rounded-xl border-2 transition ${
+              className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition ${
                 paymentMethod === option.value
                   ? 'border-orange-500 bg-orange-50'
                   : 'border-gray-200 hover:border-gray-300'
@@ -263,6 +329,14 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
               </span>
             </button>
           ))}
+          {/* Cash on delivery coming soon */}
+          <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-200 opacity-50 cursor-not-allowed select-none">
+            <span className="text-xl">💵</span>
+            <div className="flex-1 text-left">
+              <span className="text-sm font-medium text-gray-500">Cash on Delivery</span>
+              <p className="text-xs text-gray-400 mt-0.5">Coming soon — card payment only for now</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -282,7 +356,7 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
           disabled={isLoading || isPricingLoading}
           className="flex-1 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-2xl transition"
         >
-          {isLoading ? 'Processing...' : isPricingLoading ? 'Calculating...' : `Pay ${formatCurrency(pricing.total_fee)}`}
+          {isLoading ? 'Processing...' : isPricingLoading ? 'Calculating...' : `Pay ${formatCurrency(Math.max(0, pricing.total_fee - promoDiscount))}`}
         </button>
       </div>
     </div>

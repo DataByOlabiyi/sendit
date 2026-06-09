@@ -14,6 +14,7 @@ const schema = z.object({
   delivery_address: z.string().min(5, 'Enter a delivery address'),
   delivery_lat: z.number(),
   delivery_lng: z.number(),
+  delivery_landmark: z.string().max(200).optional(),
 })
 
 type StepDeliveryData = z.infer<typeof schema>
@@ -30,12 +31,13 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
     data.delivery_lat ? { address: data.delivery_address ?? '', lat: data.delivery_lat, lng: data.delivery_lng ?? 0 } : null
   )
 
-  const { handleSubmit, setValue, watch, formState: { errors } } = useForm<StepDeliveryData>({
+  const { handleSubmit, register, setValue, watch, formState: { errors } } = useForm<StepDeliveryData>({
     resolver: zodResolver(schema),
     defaultValues: {
       delivery_address: data.delivery_address ?? '',
       delivery_lat: data.delivery_lat ?? 0,
       delivery_lng: data.delivery_lng ?? 0,
+      delivery_landmark: data.delivery_landmark ?? '',
     },
   })
 
@@ -78,6 +80,22 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
           />
           {errors.delivery_address && (
             <p className="mt-1.5 text-xs text-red-500">{errors.delivery_address.message}</p>
+          )}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            Landmark <span className="text-gray-400 font-normal">(optional)</span>
+          </label>
+          <input
+            {...register('delivery_landmark')}
+            type="text"
+            placeholder="e.g. After the filling station, beside GTBank"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+          />
+          <p className="text-xs text-gray-400 mt-1">Helps the rider find your location easily</p>
+          {errors.delivery_landmark && (
+            <p className="mt-1.5 text-xs text-red-500">{errors.delivery_landmark.message}</p>
           )}
         </div>
 
