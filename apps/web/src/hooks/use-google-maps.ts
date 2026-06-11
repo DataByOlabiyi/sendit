@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { loadGoogleMaps, isGoogleMapsLoaded } from '@/lib/google-maps'
+import { loadGoogleMaps, isGoogleMapsLoaded, hasGoogleMapsAuthError } from '@/lib/google-maps'
 
 export function useGoogleMaps() {
   const [isLoaded, setIsLoaded] = useState(isGoogleMapsLoaded())
+  const [hasError, setHasError] = useState(hasGoogleMapsAuthError())
 
   useEffect(() => {
     if (isGoogleMapsLoaded()) {
@@ -12,12 +13,10 @@ export function useGoogleMaps() {
       return
     }
 
-    loadGoogleMaps().then(() => {
-      setIsLoaded(true)
-    }).catch(() => {
-      // Maps unavailable — components fall back to plain text inputs
-    })
+    loadGoogleMaps()
+      .then(() => setIsLoaded(true))
+      .catch(() => setHasError(true))
   }, [])
 
-  return { isLoaded }
+  return { isLoaded, hasError }
 }

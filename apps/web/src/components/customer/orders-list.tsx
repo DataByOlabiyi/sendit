@@ -47,12 +47,17 @@ export function OrdersList({ orders }: OrdersListProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-sm font-medium text-gray-900">No orders found</p>
+        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          </div>
+          <p className="text-sm font-semibold text-gray-900">No orders found</p>
           <p className="text-xs text-gray-500 mt-1">Try a different filter or book a delivery</p>
           <Link
             href="/book"
-            className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 transition"
+            className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition"
           >
             Book a delivery
           </Link>

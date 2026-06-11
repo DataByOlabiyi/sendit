@@ -28,7 +28,7 @@ export function DeliveryMap({
   const mapInstance = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
   const directionsRenderer = useRef<google.maps.DirectionsRenderer | null>(null)
-  const { isLoaded } = useGoogleMaps()
+  const { isLoaded, hasError: mapsAuthError } = useGoogleMaps()
   const [mapError, setMapError] = useState(false)
 
   // Default center: Lagos, Nigeria
@@ -155,14 +155,19 @@ export function DeliveryMap({
     }
   }, [isLoaded, pickupLat, pickupLng, deliveryLat, deliveryLng, riderLat, riderLng, showRoute])
 
-  if (mapError || !isLoaded) {
+  const showFallback = mapsAuthError || mapError
+  const isLoadingMap = !isLoaded && !showFallback
+
+  if (showFallback || isLoadingMap) {
     return (
       <div className={`${height} rounded-xl bg-gray-100 flex items-center justify-center`}>
-        <div className="text-center">
+        <div className="text-center px-4">
           <svg className="w-8 h-8 text-gray-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z" />
           </svg>
-          <p className="text-xs text-gray-400">{!isLoaded ? 'Loading map...' : 'Map unavailable'}</p>
+          <p className="text-xs text-gray-400">
+            {isLoadingMap ? 'Loading map…' : 'Map unavailable'}
+          </p>
         </div>
       </div>
     )
