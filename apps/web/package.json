@@ -12,6 +12,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@sendit/constants": "workspace:*",
+    "@sentry/nextjs": "^10.57.0",
     "@sendit/types": "workspace:*",
     "@sendit/ui": "workspace:*",
     "@sendit/utils": "workspace:*",
