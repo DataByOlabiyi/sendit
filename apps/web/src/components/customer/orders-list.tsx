@@ -6,6 +6,8 @@ import { formatCurrency, formatRelativeTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import type { Order, OrderStatus } from '@sendit/types'
 
+const ACTIVE_STATUSES = ['accepted', 'picked_up', 'in_transit']
+
 const filters: { label: string; value: OrderStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Active', value: 'in_transit' },
@@ -20,15 +22,40 @@ interface OrdersListProps {
 
 export function OrdersList({ orders }: OrdersListProps) {
   const [filter, setFilter] = useState<OrderStatus | 'all'>('all')
+  const [search, setSearch] = useState('')
 
-  const filtered = filter === 'all'
-    ? orders
-    : filter === 'in_transit'
-    ? orders.filter(o => ['accepted', 'picked_up', 'in_transit'].includes(o.status))
-    : orders.filter(o => o.status === filter)
+  const filtered = orders
+    .filter((o) => {
+      if (filter === 'all') return true
+      if (filter === 'in_transit') return ACTIVE_STATUSES.includes(o.status)
+      return o.status === filter
+    })
+    .filter((o) => {
+      if (!search.trim()) return true
+      const q = search.toLowerCase()
+      return (
+        o.pickup_address?.toLowerCase().includes(q) ||
+        o.delivery_address?.toLowerCase().includes(q) ||
+        o.reference?.toLowerCase().includes(q)
+      )
+    })
 
   return (
     <div>
+      {/* Search */}
+      <div className="relative mb-3">
+        <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by address or reference…"
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400 bg-white"
+        />
+      </div>
+
       {/* Filters */}
       <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
         {filters.map((f) => (
@@ -54,46 +81,67 @@ export function OrdersList({ orders }: OrdersListProps) {
             </svg>
           </div>
           <p className="text-sm font-semibold text-gray-900">No orders found</p>
-          <p className="text-xs text-gray-500 mt-1">Try a different filter or book a delivery</p>
-          <Link
-            href="/book"
-            className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition"
-          >
-            Book a delivery
-          </Link>
+          <p className="text-xs text-gray-500 mt-1">
+            {search ? 'Try a different search term' : 'Try a different filter or book a delivery'}
+          </p>
+          {!search && (
+            <Link
+              href="/book"
+              className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition"
+            >
+              Book a delivery
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((order) => (
-            <Link
-              key={order.id}
-              href={`/orders/${order.id}`}
-              className="block bg-white rounded-2xl border border-gray-100 p-4 hover:border-orange-200 transition"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <StatusBadge status={order.status} />
-                    <span className="text-xs text-gray-400">{formatRelativeTime(order.created_at)}</span>
+          {filtered.map((order) => {
+            const isActive = ACTIVE_STATUSES.includes(order.status)
+            return (
+              <Link
+                key={order.id}
+                href={`/orders/${order.id}`}
+                className={`block bg-white rounded-2xl border p-4 hover:border-orange-200 transition ${
+                  isActive ? 'border-orange-200 bg-orange-50/20' : 'border-gray-100'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <StatusBadge status={order.status} />
+                      {order.reference && (
+                        <span className="text-xs text-gray-400 font-mono">{order.reference}</span>
+                      )}
+                      <span className="text-xs text-gray-400">{formatRelativeTime(order.created_at)}</span>
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                        <p className="text-sm text-gray-600 truncate">{order.pickup_address}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-gray-900 shrink-0" />
+                        <p className="text-sm font-medium text-gray-900 truncate">{order.delivery_address}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
-                      <p className="text-sm text-gray-600 truncate">{order.pickup_address}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-gray-900 shrink-0" />
-                      <p className="text-sm font-medium text-gray-900 truncate">{order.delivery_address}</p>
-                    </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-base font-bold text-gray-900">{formatCurrency(order.total_fee)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5 capitalize">{order.package_size}</p>
+                    {isActive && (
+                      <span className="inline-flex items-center gap-1 mt-1.5 text-xs font-medium text-orange-600">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Track
+                      </span>
+                    )}
                   </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-base font-bold text-gray-900">{formatCurrency(order.total_fee)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{order.package_size}</p>
-                </div>
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

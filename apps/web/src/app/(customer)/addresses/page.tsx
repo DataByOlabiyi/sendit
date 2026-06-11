@@ -15,10 +15,12 @@ export default async function AddressesPage() {
     .order('is_default', { ascending: false })
 
   return (
-    <div className="px-4 py-6 lg:px-8 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Saved Addresses</h1>
-        <p className="text-sm text-gray-500 mt-1">Manage your pickup and delivery locations</p>
+    <div className="px-4 py-6 lg:px-8 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Saved Addresses</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage your pickup and delivery locations</p>
+        </div>
       </div>
       <AddressesList addresses={addresses ?? []} userId={user!.id} />
     </div>

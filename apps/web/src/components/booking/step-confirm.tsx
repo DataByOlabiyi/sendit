@@ -341,23 +341,25 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 pb-4">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={isLoading}
-          className="flex-1 py-3.5 border border-gray-200 text-gray-700 font-semibold rounded-2xl hover:bg-gray-50 transition disabled:opacity-60"
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          onClick={handleConfirm}
-          disabled={isLoading || isPricingLoading}
-          className="flex-1 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-2xl transition"
-        >
-          {isLoading ? 'Processing...' : isPricingLoading ? 'Calculating...' : `Pay ${formatCurrency(Math.max(0, pricing.total_fee - promoDiscount))}`}
-        </button>
+      <div className="sticky bottom-24 lg:static -mx-4 px-4 lg:mx-0 lg:px-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 lg:pt-0 lg:pb-4 lg:bg-none z-10">
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={isLoading}
+            className="flex-1 py-3.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-2xl hover:bg-gray-50 transition disabled:opacity-60"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={isLoading || isPricingLoading}
+            className="flex-1 py-3.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white font-semibold rounded-2xl transition shadow-lg shadow-orange-100 lg:shadow-none"
+          >
+            {isLoading ? 'Processing…' : isPricingLoading ? 'Calculating…' : `Pay ${formatCurrency(Math.max(0, pricing.total_fee - promoDiscount))}`}
+          </button>
+        </div>
       </div>
     </div>
   )
