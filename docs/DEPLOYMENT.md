@@ -22,6 +22,18 @@
 | `NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY` | Paystack public key |
 | `PAYSTACK_SECRET_KEY` | Paystack secret key (server only) |
 | `NEXT_PUBLIC_APP_URL` | Production URL e.g. https://web.sendit.com |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | VAPID public key for Web Push |
+| `VAPID_PRIVATE_KEY` | VAPID private key (server only) |
+| `VAPID_SUBJECT` | mailto: or https: contact for VAPID e.g. `mailto:hello@senditmoves.com` |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN for web app |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps upload |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project API key |
+| `NEXT_PUBLIC_POSTHOG_HOST` | PostHog host e.g. `https://app.posthog.com` |
+
+**Generate VAPID keys** (run once):
+```bash
+npx web-push generate-vapid-keys
+```
 
 ### apps/admin (Vercel Project: sendit-admin)
 
@@ -31,6 +43,8 @@
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same service role key |
 | `NEXT_PUBLIC_APP_URL` | Admin URL e.g. https://admin.sendit.com |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN for admin app |
+| `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps upload |
 
 ---
 
@@ -75,7 +89,16 @@ In Supabase dashboard — Authentication — URL Configuration:
 - Site URL: `https://web.sendit.com`
 - Redirect URLs: add `https://web.sendit.com/auth/reset-password`
 
-### 6. Enable Supabase Realtime
+### 6. Register JWT role hook (eliminates admin middleware DB round-trip)
+
+In Supabase dashboard — Authentication — Hooks:
+- Enable **custom_access_token_hook**
+- Function: `public.custom_access_token_hook`
+
+This bakes `user_role` into every JWT so the admin middleware reads the role
+from the token instead of querying the DB on every request.
+
+### 7. Enable Supabase Realtime
 
 In Supabase dashboard — Database — Replication:
 Enable realtime for these tables:
@@ -84,6 +107,7 @@ Enable realtime for these tables:
 - `chat_messages`
 - `notifications`
 - `order_tracking`
+- `push_subscriptions`
 
 ---
 
