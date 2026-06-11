@@ -4,10 +4,10 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { registerSchema, type RegisterInput } from '@sendit/validations'
 import { registerAction } from '@/app/auth/actions'
+import { createClient } from '@/lib/supabase/client'
 
 type Role = 'customer' | 'rider'
 
@@ -16,11 +16,30 @@ interface RegisterFormProps {
   skipRolePicker?: boolean
 }
 
+function EyeIcon({ open }: { open: boolean }) {
+  if (open) {
+    return (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    )
+  }
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+    </svg>
+  )
+}
+
 export function RegisterForm({ initialRole = 'customer', skipRolePicker = false }: RegisterFormProps) {
-  const [step, setStep] = useState<1 | 2>(skipRolePicker ? 2 : 1)
+  const [step, setStep] = useState<1 | 2 | 3>(skipRolePicker ? 2 : 1)
   const [selectedRole, setSelectedRole] = useState<Role>(initialRole)
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
+  const [registeredEmail, setRegisteredEmail] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [resending, setResending] = useState(false)
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -40,13 +59,30 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
       if (result?.error) {
         toast.error(result.error)
       } else {
-        toast.success('Account created! Check your email to verify.')
-        router.push('/auth/login')
+        setRegisteredEmail(data.email)
+        setStep(3)
       }
     } catch {
       toast.error('Something went wrong. Please try again.')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  async function handleResend() {
+    setResending(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resend({ type: 'signup', email: registeredEmail })
+      if (error) {
+        toast.error(error.message)
+      } else {
+        toast.success('Verification email resent!')
+      }
+    } catch {
+      toast.error('Could not resend email.')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -110,6 +146,49 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
           <Link href="/auth/login" className="text-orange-500 hover:text-orange-600 font-medium">
             Sign in
           </Link>
+        </p>
+      </div>
+    )
+  }
+
+  /* ─── Step 3: Email sent ─── */
+  if (step === 3) {
+    return (
+      <div className="text-center py-4">
+        <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-6">
+          <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+          </svg>
+        </div>
+
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Check your inbox</h1>
+        <p className="text-sm text-gray-500 mb-1">We sent a verification link to</p>
+        <p className="text-sm font-semibold text-gray-800 mb-6">{registeredEmail}</p>
+
+        <div className="bg-orange-50 rounded-2xl p-4 text-left mb-6">
+          <p className="text-sm text-orange-800 leading-relaxed">
+            Click the link in the email to verify your account. Check your spam folder if you don&apos;t see it within a minute.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleResend}
+          disabled={resending}
+          className="text-sm text-orange-500 hover:text-orange-600 font-medium disabled:opacity-60 transition"
+        >
+          {resending ? 'Sending…' : "Didn't receive it? Resend email"}
+        </button>
+
+        <p className="text-sm text-gray-400 mt-6">
+          Wrong email?{' '}
+          <button
+            type="button"
+            onClick={() => setStep(skipRolePicker ? 2 : 1)}
+            className="text-gray-600 hover:text-gray-800 font-medium transition"
+          >
+            Go back
+          </button>
         </p>
       </div>
     )
@@ -209,14 +288,24 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
             Password
           </label>
-          <input
-            {...register('password')}
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="Min. 8 characters"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
-          />
+          <div className="relative">
+            <input
+              {...register('password')}
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="Min. 8 characters"
+              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+              tabIndex={-1}
+            >
+              <EyeIcon open={showPassword} />
+            </button>
+          </div>
           {errors.password && <p className="mt-1.5 text-xs text-red-500">{errors.password.message}</p>}
         </div>
 
@@ -224,14 +313,24 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
           <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1.5">
             Confirm password
           </label>
-          <input
-            {...register('confirm_password')}
-            id="confirm_password"
-            type="password"
-            autoComplete="new-password"
-            placeholder="••••••••"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
-          />
+          <div className="relative">
+            <input
+              {...register('confirm_password')}
+              id="confirm_password"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              placeholder="••••••••"
+              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+              tabIndex={-1}
+            >
+              <EyeIcon open={showConfirmPassword} />
+            </button>
+          </div>
           {errors.confirm_password && (
             <p className="mt-1.5 text-xs text-red-500">{errors.confirm_password.message}</p>
           )}

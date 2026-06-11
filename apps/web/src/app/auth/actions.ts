@@ -49,6 +49,7 @@ export async function registerAction(data: RegisterInput) {
     email: data.email,
     password: data.password,
     options: {
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       data: {
         full_name: data.full_name,
         phone: data.phone,
