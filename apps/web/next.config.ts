@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { withSentryConfig } from '@sentry/nextjs'
 
 const nextConfig: NextConfig = {
   transpilePackages: [
@@ -42,4 +43,9 @@ const nextConfig: NextConfig = {
   },
 }
 
-export default nextConfig
+export default withSentryConfig(nextConfig, {
+  silent: true,
+  disableLogger: true,
+  tunnelRoute: '/monitoring',
+  sourcemaps: { disable: true },
+})

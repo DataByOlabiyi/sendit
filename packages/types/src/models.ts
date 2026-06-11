@@ -210,6 +210,41 @@ export interface Review {
   created_at: string
 }
 
+export interface SupportTicket {
+  id: string
+  user_id: string
+  order_id: string | null
+  category: 'order_issue' | 'payment' | 'account' | 'technical' | 'other'
+  subject: string
+  description: string
+  status: 'open' | 'in_progress' | 'resolved' | 'closed'
+  assigned_to: string | null
+  resolved_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface TicketMessage {
+  id: string
+  ticket_id: string
+  sender_id: string
+  message: string
+  is_staff: boolean
+  created_at: string
+}
+
+export interface AdminAuditLog {
+  id: string
+  actor_id: string
+  action: string
+  target_type: string | null
+  target_id: string | null
+  before_data: Record<string, unknown> | null
+  after_data: Record<string, unknown> | null
+  ip_address: string | null
+  created_at: string
+}
+
 export interface Dispute {
   id: string
   order_id: string

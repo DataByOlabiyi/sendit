@@ -25,10 +25,24 @@ interface RecentPayment {
   paid_at: string | null
 }
 
+interface UnitEconomics {
+  avgOrderValue: number
+  avgPlatformFee: number
+  estMaps: number
+  estSms: number
+  estPaystack: number
+  estInfra: number
+  totalEstCost: number
+  estimatedMargin: number
+  marginPct: number
+  paidOrderCount: number
+}
+
 interface AnalyticsDashboardProps {
   stats: AnalyticsStats
   recentOrders: RecentOrder[]
   recentPayments: RecentPayment[]
+  unitEconomics: UnitEconomics
 }
 
 type Range = 7 | 30 | 90
@@ -83,7 +97,7 @@ function BarChart({ days, data, color, formatVal }: {
   )
 }
 
-export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ stats, recentOrders, recentPayments, unitEconomics }: AnalyticsDashboardProps) {
   const [range, setRange] = useState<Range>(7)
 
   const statCards = [
@@ -176,6 +190,58 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments }: Anal
           formatVal={(v) => v > 1000 ? `₦${Math.round(v / 1000)}k` : `₦${Math.round(v)}`}
         />
       </div>
+
+      {/* Unit Economics */}
+      {unitEconomics.paidOrderCount > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-base font-semibold text-gray-900 mb-1">Unit Economics — Per Order</h2>
+          <p className="text-xs text-gray-400 mb-4">
+            Based on {unitEconomics.paidOrderCount} paid orders in the last 30 days.
+            Infrastructure costs are estimates — update as actuals become available.
+          </p>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center py-2 border-b border-gray-50">
+              <span className="text-sm text-gray-700">Avg. order value</span>
+              <span className="text-sm font-semibold text-gray-900">{formatCurrency(unitEconomics.avgOrderValue)}</span>
+            </div>
+            <div className="flex justify-between items-center py-2 border-b border-gray-50">
+              <span className="text-sm text-gray-700">Platform commission ({PRICING.PLATFORM_COMMISSION * 100}%)</span>
+              <span className="text-sm font-semibold text-green-600">+{formatCurrency(unitEconomics.avgPlatformFee)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-xs text-gray-500">Maps API (est.)</span>
+              <span className="text-xs text-red-500">−{formatCurrency(unitEconomics.estMaps)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-xs text-gray-500">SMS notifications (est.)</span>
+              <span className="text-xs text-red-500">−{formatCurrency(unitEconomics.estSms)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-xs text-gray-500">Paystack processing (est.)</span>
+              <span className="text-xs text-red-500">−{formatCurrency(unitEconomics.estPaystack)}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-gray-50">
+              <span className="text-xs text-gray-500">Infrastructure (est.)</span>
+              <span className="text-xs text-red-500">−{formatCurrency(unitEconomics.estInfra)}</span>
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-sm font-semibold text-gray-900">Est. margin per order</span>
+              <div className="text-right">
+                <span className={`text-sm font-bold ${unitEconomics.estimatedMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {unitEconomics.estimatedMargin >= 0 ? '+' : ''}{formatCurrency(unitEconomics.estimatedMargin)}
+                </span>
+                <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                  unitEconomics.marginPct >= 50 ? 'bg-green-100 text-green-700' :
+                  unitEconomics.marginPct >= 20 ? 'bg-yellow-100 text-yellow-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {unitEconomics.marginPct}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

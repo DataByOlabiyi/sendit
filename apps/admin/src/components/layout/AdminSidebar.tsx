@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: '📊' },
+  { label: 'Ops Center', href: '/dashboard/ops', icon: '🎯' },
   { label: 'Users', href: '/dashboard/users', icon: '👥' },
   { label: 'Riders', href: '/dashboard/riders', icon: '🏍️' },
   { label: 'KYC Review', href: '/dashboard/kyc', icon: '🪪' },
@@ -14,7 +15,9 @@ const navItems = [
   { label: 'Payments', href: '/dashboard/payments', icon: '💳' },
   { label: 'Payouts', href: '/dashboard/payouts', icon: '💸' },
   { label: 'Disputes', href: '/dashboard/disputes', icon: '⚖️' },
+  { label: 'Support', href: '/dashboard/support', icon: '🎫' },
   { label: 'Analytics', href: '/dashboard/analytics', icon: '📈' },
+  { label: 'Audit Logs', href: '/dashboard/audit-logs', icon: '🔍' },
   { label: 'Notifications', href: '/dashboard/notifications', icon: '🔔' },
   { label: 'Settings', href: '/dashboard/settings', icon: '⚙️' },
 ]
