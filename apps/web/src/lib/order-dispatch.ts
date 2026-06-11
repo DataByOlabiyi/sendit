@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@/lib/push'
 
 // Calls the rider-match Edge Function and creates in-app notifications for
 // the top matched riders. Called after payment is confirmed (from both the
@@ -44,13 +45,19 @@ export async function notifyNearbyRidersForOrder(orderId: string): Promise<void>
 
   if (!riders?.length) return
 
-  await admin.from('notifications').insert(
-    riders.map((r) => ({
-      user_id: r.user_id,
-      type: 'order_update' as const,
-      title: 'New Delivery Available',
-      body: `A delivery is available ${r.distance_km} km away. Tap to view.`,
-      data: { order_id: orderId },
-    })),
-  )
+  const notificationRows = riders.map((r) => ({
+    user_id: r.user_id,
+    type: 'order_update' as const,
+    title: 'New Delivery Available',
+    body: `A delivery is available ${r.distance_km.toFixed(1)} km away. Tap to view.`,
+    data: { order_id: orderId },
+  }))
+
+  await admin.from('notifications').insert(notificationRows)
+
+  // Fire-and-forget push — don't let push failures block the response
+  sendPushToUsers(
+    riders.map((r) => r.user_id),
+    { title: 'New Delivery Available', body: notificationRows[0].body, url: `/rider/orders/${orderId}`, tag: `order-${orderId}` },
+  ).catch(console.error)
 }

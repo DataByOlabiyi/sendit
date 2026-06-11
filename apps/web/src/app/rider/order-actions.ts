@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { sendPushToUsers } from '@/lib/push'
 import type { OrderStatus } from '@sendit/types'
 
 // Valid forward-only state machine transitions a rider may initiate.
@@ -35,13 +36,22 @@ export async function acceptOrderAction(orderId: string) {
   if (!rider) return { error: 'Rider profile not found' }
   if (rider.status !== 'approved') return { error: 'Your account is pending approval' }
 
-  const { error } = await supabase
+  const { data: accepted, error } = await supabase
     .from('orders')
     .update({ rider_id: rider.id, status: 'accepted' })
     .eq('id', orderId)
     .eq('status', 'pending')
+    .select('customer_id')
+    .single()
 
-  if (error) return { error: 'Failed to accept order. It may have been taken.' }
+  if (error || !accepted) return { error: 'Failed to accept order. It may have been taken.' }
+
+  sendPushToUsers([accepted.customer_id], {
+    title: 'Rider on the way!',
+    body: 'A rider has accepted your order and is heading to the pickup location.',
+    url: `/orders/${orderId}`,
+    tag: `order-${orderId}`,
+  }).catch(console.error)
 
   revalidatePath('/rider/dashboard')
   revalidatePath(`/rider/orders/${orderId}`)
@@ -88,13 +98,29 @@ export async function advanceOrderStatusAction(orderId: string, status: OrderSta
     }
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from('orders')
     .update({ status })
     .eq('id', orderId)
     .eq('rider_id', rider.id)
+    .select('customer_id')
+    .single()
 
-  if (error) return { error: 'Failed to update order status' }
+  if (error || !updated) return { error: 'Failed to update order status' }
+
+  const pushMessages: Partial<Record<OrderStatus, string>> = {
+    picked_up: 'Your package has been picked up and is on the way!',
+    in_transit: 'Your delivery is now in transit.',
+  }
+  const pushBody = pushMessages[status]
+  if (pushBody) {
+    sendPushToUsers([updated.customer_id], {
+      title: 'Order Update',
+      body: pushBody,
+      url: `/orders/${orderId}`,
+      tag: `order-${orderId}`,
+    }).catch(console.error)
+  }
 
   revalidatePath(`/rider/orders/${orderId}`)
   revalidatePath('/rider/dashboard')
@@ -136,18 +162,43 @@ export async function uploadProofOfDeliveryAction(orderId: string, imageUrl: str
     return { error: 'Proof of delivery image not found in storage' }
   }
 
-  // The order must currently be in_transit; status machine enforces delivered→
-  const { error } = await supabase
+  // Fetch payment_method so cash orders can be marked paid simultaneously
+  const { data: orderData } = await supabase
     .from('orders')
-    .update({
-      status: 'delivered',
-      proof_of_delivery_url: imageUrl,
-    })
+    .select('payment_method')
     .eq('id', orderId)
     .eq('rider_id', rider.id)
     .eq('status', 'in_transit')
+    .single()
 
-  if (error) return { error: 'Failed to complete delivery' }
+  if (!orderData) return { error: 'Order not found or not in transit' }
+
+  const updates: Record<string, unknown> = {
+    status: 'delivered',
+    proof_of_delivery_url: imageUrl,
+  }
+  // Cash COD: rider confirmed collection on the client — mark payment settled
+  if (orderData.payment_method === 'cash') {
+    updates.payment_status = 'paid'
+  }
+
+  const { data: delivered, error } = await supabase
+    .from('orders')
+    .update(updates)
+    .eq('id', orderId)
+    .eq('rider_id', rider.id)
+    .eq('status', 'in_transit')
+    .select('customer_id')
+    .single()
+
+  if (error || !delivered) return { error: 'Failed to complete delivery' }
+
+  sendPushToUsers([delivered.customer_id], {
+    title: 'Package Delivered!',
+    body: 'Your delivery has been completed successfully.',
+    url: `/orders/${orderId}`,
+    tag: `order-${orderId}`,
+  }).catch(console.error)
 
   revalidatePath(`/rider/orders/${orderId}`)
   revalidatePath('/rider/dashboard')

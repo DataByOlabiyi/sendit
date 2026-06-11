@@ -35,6 +35,8 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
   const [isTrackingLocation, setIsTrackingLocation] = useState(false)
   const [showFailureModal, setShowFailureModal] = useState(false)
   const [failureReason, setFailureReason] = useState('')
+  const [showCodModal, setShowCodModal] = useState(false)
+  const [codConfirmed, setCodConfirmed] = useState(false)
   const router = useRouter()
 
   const isOwnOrder = order.rider_id === riderId
@@ -99,6 +101,13 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
 
   async function handleUpdateStatus() {
     if (!next) return
+
+    // Cash orders: require explicit COD confirmation before completing delivery
+    if (next.status === 'delivered' && order.payment_method === 'cash' && !codConfirmed) {
+      setShowCodModal(true)
+      return
+    }
+
     setIsLoading(true)
 
     try {
@@ -369,13 +378,27 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         )}
 
         {isOwnOrder && next && (
-          <button
-            onClick={handleUpdateStatus}
-            disabled={isLoading}
-            className={`w-full py-3.5 ${next.color} disabled:opacity-60 text-white font-semibold rounded-2xl transition`}
-          >
-            {isLoading ? 'Updating...' : next.label}
-          </button>
+          <>
+            {next.status === 'delivered' && order.payment_method === 'cash' && (
+              <div className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm ${codConfirmed ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}`}>
+                <span>{codConfirmed ? '✓' : '⚠️'}</span>
+                {codConfirmed
+                  ? `Cash payment confirmed — ${formatCurrency(order.total_fee)} received`
+                  : `Cash on delivery — collect ${formatCurrency(order.total_fee)} before completing`}
+              </div>
+            )}
+            <button
+              onClick={handleUpdateStatus}
+              disabled={isLoading}
+              className={`w-full py-3.5 ${next.color} disabled:opacity-60 text-white font-semibold rounded-2xl transition`}
+            >
+              {isLoading
+                ? 'Updating...'
+                : next.status === 'delivered' && order.payment_method === 'cash' && !codConfirmed
+                  ? 'Confirm Cash & Complete'
+                  : next.label}
+            </button>
+          </>
         )}
 
         {/* Failed delivery button — shown when in_transit */}
@@ -445,6 +468,42 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
           </div>
         )}
       </div>
+
+      {/* Cash on delivery confirmation modal */}
+      {showCodModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCodModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 z-10">
+            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+            <h2 className="text-base font-semibold text-gray-900 text-center mb-1">Collect Cash Payment</h2>
+            <p className="text-xs text-gray-500 text-center mb-4">
+              This is a cash-on-delivery order. Confirm you have received payment from the customer.
+            </p>
+            <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center mb-5">
+              <p className="text-xs text-gray-500 mb-1">Amount to collect</p>
+              <p className="text-3xl font-bold text-green-700">{formatCurrency(order.total_fee)}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCodModal(false)}
+                className="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50 transition"
+              >
+                Not Yet
+              </button>
+              <button
+                onClick={() => { setCodConfirmed(true); setShowCodModal(false) }}
+                className="flex-1 py-3 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl transition text-sm"
+              >
+                Cash Received
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Failed delivery reason modal */}
       {showFailureModal && (
