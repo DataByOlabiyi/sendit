@@ -73,7 +73,7 @@ export function DeliveryMap({
     let hasMarkers = false
 
     // Pickup marker
-    if (pickupLat && pickupLng) {
+    if (pickupLat != null && pickupLng != null) {
       const marker = new google.maps.Marker({
         position: { lat: pickupLat, lng: pickupLng },
         map: mapInstance.current,
@@ -93,7 +93,7 @@ export function DeliveryMap({
     }
 
     // Delivery marker
-    if (deliveryLat && deliveryLng) {
+    if (deliveryLat != null && deliveryLng != null) {
       const marker = new google.maps.Marker({
         position: { lat: deliveryLat, lng: deliveryLng },
         map: mapInstance.current,
@@ -113,7 +113,7 @@ export function DeliveryMap({
     }
 
     // Rider marker
-    if (riderLat && riderLng) {
+    if (riderLat != null && riderLng != null) {
       const marker = new google.maps.Marker({
         position: { lat: riderLat, lng: riderLng },
         map: mapInstance.current,

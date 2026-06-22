@@ -99,6 +99,9 @@ export function StepPackage({ data, onUpdate, onNext, onBack }: StepPackageProps
                 </label>
               ))}
             </div>
+            {errors.package_size && (
+              <p className="mt-1.5 text-xs text-red-500">{errors.package_size.message}</p>
+            )}
           </div>
 
           {/* Toggles */}

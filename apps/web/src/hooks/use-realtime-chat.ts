@@ -26,7 +26,7 @@ export function useRealtimeChat(orderId: string, currentUserId: string) {
 
   // Fetch the most recent PAGE_SIZE messages on mount
   useEffect(() => {
-    let ignore = false
+    const controller = new AbortController()
 
     async function fetchInitialMessages() {
       const { data } = await supabase.current
@@ -35,8 +35,10 @@ export function useRealtimeChat(orderId: string, currentUserId: string) {
         .eq('order_id', orderId)
         .order('created_at', { ascending: false })
         .limit(PAGE_SIZE)
+        .abortSignal(controller.signal)
 
-      if (ignore) return
+      // Guard against state updates after unmount
+      if (controller.signal.aborted) return
 
       if (data) {
         // Data comes back newest-first; reverse for chronological display
@@ -48,7 +50,9 @@ export function useRealtimeChat(orderId: string, currentUserId: string) {
       setIsLoading(false)
     }
 
-    fetchInitialMessages()
+    fetchInitialMessages().catch((err) => {
+      if (!controller.signal.aborted) console.error('Chat fetch error:', err)
+    })
 
     // Subscribe to new inserts and read-receipt updates
     const channel = supabase.current
@@ -84,7 +88,7 @@ export function useRealtimeChat(orderId: string, currentUserId: string) {
       .subscribe()
 
     return () => {
-      ignore = true
+      controller.abort()
       supabase.current.removeChannel(channel)
     }
   }, [orderId])

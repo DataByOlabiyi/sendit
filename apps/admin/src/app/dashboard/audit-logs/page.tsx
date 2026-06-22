@@ -16,16 +16,26 @@ const ACTION_COLORS: Record<string, string> = {
   'pricing.update': 'bg-yellow-100 text-yellow-700',
 }
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100]
+
 export default async function AuditLogsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ action?: string; page?: string }>
+  searchParams: Promise<{ action?: string; page?: string; pageSize?: string }>
 }) {
-  const { action, page } = await searchParams
+  const { action, page, pageSize: pageSizeParam } = await searchParams
   const supabase = await createClient()
   const pageNum = Math.max(1, parseInt(page ?? '1', 10))
-  const pageSize = 50
+  const pageSize = PAGE_SIZE_OPTIONS.includes(parseInt(pageSizeParam ?? '', 10))
+    ? parseInt(pageSizeParam!, 10)
+    : 50
   const offset = (pageNum - 1) * pageSize
+
+  let countQuery = supabase
+    .from('admin_audit_logs')
+    .select('*', { count: 'exact', head: true })
+  if (action) countQuery = countQuery.eq('action', action)
+  const { count } = await countQuery
 
   let query = supabase
     .from('admin_audit_logs')
@@ -38,11 +48,6 @@ export default async function AuditLogsPage({
 
   if (action) query = query.eq('action', action)
 
-  const { data: logs, count } = await supabase
-    .from('admin_audit_logs')
-    .select('action')
-    .then(() => ({ data: null, count: null }))
-
   const { data: entries } = await query
 
   const { data: distinctActions } = await supabase
@@ -51,6 +56,7 @@ export default async function AuditLogsPage({
     .order('action')
 
   const actions = [...new Set(distinctActions?.map((r) => r.action) ?? [])]
+  const totalPages = count ? Math.ceil(count / pageSize) : null
 
   return (
     <div className="px-6 py-8 max-w-7xl">
@@ -60,7 +66,7 @@ export default async function AuditLogsPage({
       </div>
 
       {/* Filters */}
-      <form className="flex gap-3 mb-6 flex-wrap">
+      <form className="flex gap-3 mb-6 flex-wrap items-center">
         <select
           name="action"
           defaultValue={action ?? ''}
@@ -71,18 +77,27 @@ export default async function AuditLogsPage({
             <option key={a} value={a}>{a}</option>
           ))}
         </select>
+        <select
+          name="pageSize"
+          defaultValue={pageSize}
+          className="px-4 py-2 rounded-xl border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+        >
+          {PAGE_SIZE_OPTIONS.map((s) => (
+            <option key={s} value={s}>{s} per page</option>
+          ))}
+        </select>
         <button
           type="submit"
           className="px-4 py-2 rounded-xl bg-orange-500 text-white text-sm font-medium hover:bg-orange-600 transition"
         >
-          Filter
+          Apply
         </button>
-        {action && (
+        {(action || pageSize !== 50) && (
           <a
             href="/dashboard/audit-logs"
             className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition"
           >
-            Clear
+            Reset
           </a>
         )}
       </form>
@@ -159,19 +174,23 @@ export default async function AuditLogsPage({
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-          <p className="text-xs text-gray-500">Page {pageNum}</p>
+          <p className="text-xs text-gray-500">
+            {count != null
+              ? `${offset + 1}–${Math.min(offset + (entries?.length ?? 0), count)} of ${count.toLocaleString()} entries`
+              : `Page ${pageNum}`}
+          </p>
           <div className="flex gap-2">
             {pageNum > 1 && (
               <a
-                href={`/dashboard/audit-logs?page=${pageNum - 1}${action ? `&action=${action}` : ''}`}
+                href={`/dashboard/audit-logs?page=${pageNum - 1}${action ? `&action=${action}` : ''}&pageSize=${pageSize}`}
                 className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition"
               >
                 Previous
               </a>
             )}
-            {(entries?.length ?? 0) === pageSize && (
+            {(totalPages == null || pageNum < totalPages) && (entries?.length ?? 0) === pageSize && (
               <a
-                href={`/dashboard/audit-logs?page=${pageNum + 1}${action ? `&action=${action}` : ''}`}
+                href={`/dashboard/audit-logs?page=${pageNum + 1}${action ? `&action=${action}` : ''}&pageSize=${pageSize}`}
                 className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50 transition"
               >
                 Next

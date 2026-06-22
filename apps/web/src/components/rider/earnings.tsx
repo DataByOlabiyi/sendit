@@ -160,7 +160,20 @@ export function RiderEarnings({ payments, rider, wallet, recentPayouts }: RiderE
       {/* Wallet balance card */}
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white mb-6">
         <p className="text-xs text-orange-200 uppercase tracking-wide mb-1">Wallet Balance</p>
-        <p className="text-3xl font-bold mb-4">{formatCurrency(walletBalance)}</p>
+        <p className="text-3xl font-bold mb-3">{formatCurrency(walletBalance)}</p>
+        {wallet && (
+          <div className="flex gap-4 mb-4">
+            <div>
+              <p className="text-xs text-orange-200">Total Earned</p>
+              <p className="text-sm font-semibold">{formatCurrency(wallet.total_earned)}</p>
+            </div>
+            <div className="w-px bg-orange-400/40" />
+            <div>
+              <p className="text-xs text-orange-200">Total Paid Out</p>
+              <p className="text-sm font-semibold">{formatCurrency(wallet.total_paid)}</p>
+            </div>
+          </div>
+        )}
         <div className="flex gap-3">
           <button
             onClick={() => setShowPayoutModal(true)}
@@ -303,7 +316,7 @@ export function RiderEarnings({ payments, rider, wallet, recentPayouts }: RiderE
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Earnings</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalEarnings)}</p>

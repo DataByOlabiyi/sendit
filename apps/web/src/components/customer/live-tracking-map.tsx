@@ -269,18 +269,32 @@ export function LiveTrackingMap({
             </div>
           </div>
         ) : !hasRider ? (
-          <div>
-            <p className="text-sm font-medium text-gray-900">Waiting for rider</p>
-            <p className="text-xs text-gray-500 mt-0.5">A nearby rider will be assigned shortly</p>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-orange-500 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.364-6.364l-2.121 2.121M8.757 15.243l-2.121 2.121m0-12.728l2.121 2.121m8.486 8.486l2.121 2.121" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Waiting for rider</p>
+              <p className="text-xs text-gray-500 mt-0.5">A nearby rider will be assigned shortly</p>
+            </div>
           </div>
         ) : !hasLocation ? (
-          <div>
-            <p className="text-sm font-medium text-gray-900">Rider assigned</p>
-            <p className="text-xs text-gray-500 mt-0.5">Location will appear once the rider is on the way</p>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Rider assigned</p>
+              <p className="text-xs text-gray-500 mt-0.5">Location will appear once the rider is on the way</p>
+            </div>
           </div>
         ) : (
           <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-900">Rider en route</p>
+            <p className="text-sm font-semibold text-gray-900">Rider en route</p>
             {riderLocation.updatedAt && (
               <p className="text-xs text-gray-400">
                 Updated {formatRelativeTime(riderLocation.updatedAt)}

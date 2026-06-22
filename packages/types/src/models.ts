@@ -23,6 +23,8 @@ export interface User {
   avatar_url: string | null
   role: UserRole
   is_active: boolean
+  referral_code: string | null
+  referred_by: string | null
   created_at: string
   updated_at: string
   deleted_at: string | null
@@ -132,8 +134,11 @@ export interface Order {
   failed_at: string | null
   returned_at: string | null
   cancelled_at: string | null
+  is_scheduled: boolean
   scheduled_pickup_at: string | null
-  delivery_otp: string | null
+  preferred_time_slot: 'morning' | 'afternoon' | 'evening' | 'asap' | null
+  delivery_otp_hash: string | null
+  delivery_otp_attempts: number
   delivery_otp_verified_at: string | null
   created_at: string
   updated_at: string
@@ -160,6 +165,7 @@ export interface Payment {
   paystack_access_code: string | null
   platform_fee: number
   rider_payout: number
+  refund_initiated_at: string | null
   paid_at: string | null
   created_at: string
   updated_at: string
@@ -243,6 +249,21 @@ export interface AdminAuditLog {
   after_data: Record<string, unknown> | null
   ip_address: string | null
   created_at: string
+}
+
+export interface Promotion {
+  id: string
+  code: string
+  description: string | null
+  type: 'percentage' | 'fixed'
+  value: number
+  min_order_amount: number | null
+  max_uses: number | null
+  uses_count: number
+  expires_at: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface Dispute {

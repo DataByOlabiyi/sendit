@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
-import { StatusBadge } from '@sendit/ui'
+import { StatusBadge, EmptyState } from '@sendit/ui'
+import { Package } from 'lucide-react'
 import type { Order, OrderStatus } from '@sendit/types'
 
 const ACTIVE_STATUSES = ['accepted', 'picked_up', 'in_transit']
@@ -74,41 +75,40 @@ export function OrdersList({ orders }: OrdersListProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
-          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
-          </div>
-          <p className="text-sm font-semibold text-gray-900">No orders found</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {search ? 'Try a different search term' : 'Try a different filter or book a delivery'}
-          </p>
-          {!search && (
+        <EmptyState
+          icon={Package}
+          title="No orders found"
+          description={search ? 'Try a different search term' : 'Try a different filter or book your first delivery'}
+          action={!search ? (
             <Link
               href="/book"
-              className="inline-flex items-center gap-2 mt-5 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition"
             >
               Book a delivery
             </Link>
-          )}
-        </div>
+          ) : undefined}
+          className="min-h-[50vh]"
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((order) => {
             const isActive = ACTIVE_STATUSES.includes(order.status)
+            const needsPayment = order.status === 'pending' && order.payment_status === 'pending' && order.payment_method === 'paystack'
             return (
               <Link
                 key={order.id}
                 href={`/orders/${order.id}`}
                 className={`block bg-white rounded-2xl border p-4 hover:border-orange-200 transition ${
-                  isActive ? 'border-orange-200 bg-orange-50/20' : 'border-gray-100'
+                  needsPayment ? 'border-yellow-300 bg-yellow-50/30' : isActive ? 'border-orange-200 bg-orange-50/20' : 'border-gray-100'
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <StatusBadge status={order.status} />
+                      {needsPayment && (
+                        <span className="text-xs font-semibold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">Payment required</span>
+                      )}
                       {order.reference && (
                         <span className="text-xs text-gray-400 font-mono">{order.reference}</span>
                       )}

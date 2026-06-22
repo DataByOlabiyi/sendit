@@ -16,6 +16,10 @@ interface RiderRow {
   is_online: boolean
   rating: number
   total_deliveries: number
+  tier: string | null
+  kyc_status: string | null
+  bvn: string | null
+  nin: string | null
   license_doc_url: string | null
   vehicle_doc_url: string | null
   created_at: string
@@ -38,10 +42,25 @@ const statusStyles: Record<string, string> = {
   rejected: 'bg-gray-100 text-gray-600',
 }
 
+const tierConfig: Record<string, { label: string; color: string }> = {
+  bronze: { label: 'Bronze', color: 'bg-amber-100 text-amber-700' },
+  silver: { label: 'Silver', color: 'bg-slate-100 text-slate-600' },
+  gold: { label: 'Gold', color: 'bg-yellow-100 text-yellow-600' },
+  platinum: { label: 'Platinum', color: 'bg-violet-100 text-violet-700' },
+}
+
+const kycColors: Record<string, string> = {
+  pending: 'bg-gray-100 text-gray-500',
+  submitted: 'bg-blue-100 text-blue-700',
+  verified: 'bg-green-100 text-green-700',
+  failed: 'bg-red-100 text-red-700',
+}
+
 type ModalState =
   | { type: 'none' }
   | { type: 'docs'; rider: RiderRow }
   | { type: 'reason'; action: 'suspend' | 'reject'; riderId: string }
+  | { type: 'kyc'; rider: RiderRow }
 
 export function RidersTable({ riders: initialRiders }: RidersTableProps) {
   const [riders, setRiders] = useState(initialRiders)
@@ -50,6 +69,8 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [reasonText, setReasonText] = useState('')
+  const [kycLoading, setKycLoading] = useState(false)
+  const [kycRejectReason, setKycRejectReason] = useState('')
 
   const filtered = riders.filter((r) => {
     const matchesSearch =
@@ -114,9 +135,41 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
     }
   }
 
+  async function handleKycAction(riderId: string, action: 'approve' | 'reject') {
+    if (action === 'reject' && !kycRejectReason.trim()) {
+      toast.error('Provide a reason for rejection')
+      return
+    }
+    setKycLoading(true)
+    try {
+      const res = await fetch('/api/kyc/review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ riderId, action, reason: kycRejectReason.trim() || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'KYC update failed'); return }
+      const newKycStatus = action === 'approve' ? 'verified' : 'failed'
+      setRiders((prev) => prev.map((r) => r.id === riderId ? { ...r, kyc_status: newKycStatus } : r))
+      toast.success(action === 'approve' ? 'KYC approved — rider verified' : 'KYC rejected')
+      setModal({ type: 'none' })
+    } catch {
+      toast.error('Network error')
+    } finally {
+      setKycLoading(false)
+    }
+  }
+
   const ActionButtons = ({ rider }: { rider: RiderRow }) => (
     <div className="flex items-center justify-end gap-2 flex-wrap">
-      {/* Document viewer button */}
+      {rider.kyc_status === 'submitted' && (
+        <button
+          onClick={() => { setKycRejectReason(''); setModal({ type: 'kyc', rider }) }}
+          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition touch-manipulation"
+        >
+          Review KYC
+        </button>
+      )}
       {(rider.license_doc_url || rider.vehicle_doc_url) && (
         <button
           onClick={() => setModal({ type: 'docs', rider })}
@@ -165,6 +218,26 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
     </div>
   )
 
+  const TierBadge = ({ tier }: { tier: string | null }) => {
+    if (!tier) return null
+    const cfg = tierConfig[tier]
+    if (!cfg) return null
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cfg.color}`}>
+        {cfg.label}
+      </span>
+    )
+  }
+
+  const KycBadge = ({ status }: { status: string | null }) => {
+    if (!status) return null
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${kycColors[status] ?? 'bg-gray-100 text-gray-500'}`}>
+        KYC: {status}
+      </span>
+    )
+  }
+
   return (
     <>
       <div>
@@ -207,9 +280,13 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                     <p className="text-sm font-semibold text-gray-900">{rider.users?.full_name ?? '—'}</p>
                     <p className="text-xs text-gray-500">{rider.users?.email}</p>
                   </div>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[rider.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {rider.status}
-                  </span>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[rider.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {rider.status}
+                    </span>
+                    <TierBadge tier={rider.tier} />
+                    <KycBadge status={rider.kyc_status} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-xs text-gray-500 mb-3">
                   <div><span className="text-gray-400">Vehicle:</span> {rider.vehicle_type}</div>
@@ -234,7 +311,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Rider</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Vehicle</th>
                   <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Stats</th>
-                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Status</th>
+                  <th className="text-left text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Status / Tier</th>
                   <th className="text-right text-xs font-semibold text-gray-500 uppercase tracking-wide px-5 py-3">Actions</th>
                 </tr>
               </thead>
@@ -253,6 +330,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                           <p className="text-sm font-medium text-gray-900">{rider.users?.full_name ?? '—'}</p>
                           <p className="text-xs text-gray-500">{rider.users?.email}</p>
                           <p className="text-xs text-gray-400">{rider.users?.phone ?? '—'}</p>
+                          <p className="text-xs text-gray-300 mt-0.5">{formatDate(rider.created_at)}</p>
                         </div>
                       </td>
                       <td className="px-5 py-4">
@@ -272,9 +350,13 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[rider.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {rider.status}
-                        </span>
+                        <div className="flex flex-col gap-1.5">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize w-fit ${statusStyles[rider.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {rider.status}
+                          </span>
+                          <TierBadge tier={rider.tier} />
+                          <KycBadge status={rider.kyc_status} />
+                        </div>
                       </td>
                       <td className="px-5 py-4">
                         <ActionButtons rider={rider} />
@@ -320,6 +402,66 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                 }`}
               >
                 {modal.action === 'suspend' ? 'Suspend' : 'Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* KYC review modal */}
+      {modal.type === 'kyc' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setModal({ type: 'none' })} />
+          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 z-10">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-gray-900">KYC Review — {modal.rider.users?.full_name}</h2>
+              <button onClick={() => setModal({ type: 'none' })} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition text-gray-400 text-lg">×</button>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">BVN</span>
+                <span className="font-mono text-gray-900 font-medium">
+                  {modal.rider.bvn ? `${modal.rider.bvn.slice(0, 3)}••••${modal.rider.bvn.slice(-3)}` : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">NIN</span>
+                <span className="font-mono text-gray-900 font-medium">
+                  {modal.rider.nin ? `${modal.rider.nin.slice(0, 3)}••••${modal.rider.nin.slice(-3)}` : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">License</span>
+                <span className="text-gray-900">{modal.rider.license_number}</span>
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Rejection reason (required if rejecting)</label>
+              <textarea
+                value={kycRejectReason}
+                onChange={(e) => setKycRejectReason(e.target.value)}
+                placeholder="e.g. BVN does not match provided name"
+                rows={2}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleKycAction(modal.rider.id, 'reject')}
+                disabled={kycLoading}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
+              >
+                Reject KYC
+              </button>
+              <button
+                onClick={() => handleKycAction(modal.rider.id, 'approve')}
+                disabled={kycLoading}
+                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-green-500 hover:bg-green-600 text-white transition disabled:opacity-50"
+              >
+                {kycLoading ? 'Processing...' : 'Approve KYC'}
               </button>
             </div>
           </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Pagination } from '@/components/ui/pagination'
 
 interface DisputeRow {
   id: string
@@ -49,6 +50,8 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   function getUser(row: DisputeRow) {
     if (!row.users) return null
@@ -63,6 +66,9 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
   const filtered = statusFilter === 'all'
     ? disputes
     : disputes.filter((d) => d.status === statusFilter)
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  function handleFilter(val: string) { setStatusFilter(val); setPage(1) }
 
   async function handleStatusUpdate() {
     if (!resolveModal) return
@@ -107,7 +113,7 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
         {['all', 'open', 'under_review', 'resolved', 'rejected'].map((s) => (
           <button
             key={s}
-            onClick={() => setStatusFilter(s)}
+            onClick={() => handleFilter(s)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition capitalize ${
               statusFilter === s ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600'
             }`}
@@ -140,7 +146,7 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
                   <td colSpan={6} className="text-center py-10 text-sm text-gray-400">No disputes</td>
                 </tr>
               ) : (
-                filtered.map((dispute) => {
+                paginated.map((dispute) => {
                   const user = getUser(dispute)
                   const order = getOrder(dispute)
                   return (
@@ -204,6 +210,15 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
           </table>
         </div>
       </div>
+
+      <Pagination
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="disputes"
+      />
 
       {/* Resolution modal */}
       {resolveModal && (

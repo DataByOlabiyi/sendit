@@ -14,7 +14,7 @@ const statusSteps: OrderStatus[] = ['pending', 'accepted', 'picked_up', 'in_tran
 interface OrderDetailProps {
   order: Order & {
     reference?: string | null
-    rider?: { full_name: string } | null
+    rider?: { full_name: string; rating?: number } | null
     riderId?: string | null
     hasExistingReview?: boolean
   }
@@ -49,6 +49,26 @@ export function OrderDetail({ order }: OrderDetailProps) {
         </div>
         <StatusBadge status={order.status} />
       </div>
+
+      {/* Scheduled pickup banner */}
+      {order.is_scheduled && order.scheduled_pickup_at && (
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Scheduled Pickup</p>
+            <p className="text-xs text-blue-600 mt-0.5">
+              {new Date(order.scheduled_pickup_at).toLocaleDateString('en-NG', { weekday: 'short', month: 'short', day: 'numeric' })}
+              {order.preferred_time_slot && order.preferred_time_slot !== 'asap' && (
+                <span className="capitalize"> · {order.preferred_time_slot}</span>
+              )}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Cancelled banner */}
       {isCancelled && (
@@ -125,6 +145,29 @@ export function OrderDetail({ order }: OrderDetailProps) {
               </div>
             </button>
           )}
+        </div>
+      )}
+
+      {/* Rider info */}
+      {order.rider && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Your Rider</h2>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-orange-100 flex items-center justify-center shrink-0">
+              <span className="text-base font-bold text-orange-500">{order.rider.full_name.charAt(0).toUpperCase()}</span>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">{order.rider.full_name}</p>
+              {order.rider.rating != null && (
+                <div className="flex items-center gap-1 mt-0.5">
+                  <svg className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                  <span className="text-xs text-gray-600 font-medium">{order.rider.rating.toFixed(1)}</span>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

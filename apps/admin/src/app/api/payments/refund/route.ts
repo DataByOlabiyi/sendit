@@ -40,6 +40,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No Paystack reference — cannot initiate refund' }, { status: 400 })
     }
 
+    // Atomic lock: set refund_initiated_at only if it is currently NULL.
+    // Guards against two admins clicking refund simultaneously or a network retry.
+    const { data: lockGranted } = await supabase
+      .rpc('lock_payment_for_refund', { p_payment_id: paymentId })
+
+    if (!lockGranted) {
+      return NextResponse.json(
+        { error: 'A refund for this payment was already initiated. Check Paystack for status.' },
+        { status: 409 },
+      )
+    }
+
     // Initiate refund via Paystack API
     const paystackRes = await fetch('https://api.paystack.co/refund', {
       method: 'POST',

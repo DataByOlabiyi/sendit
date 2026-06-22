@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+
+const validatePromoSchema = z.object({
+  code: z.string().min(1, 'Promo code required').max(50),
+  orderTotal: z.number().positive('Order total must be positive'),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { code, orderTotal } = await request.json()
-  if (!code) return NextResponse.json({ error: 'Promo code required' }, { status: 400 })
+  const body = await request.json()
+  const parsed = validatePromoSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
+  }
+  const { code, orderTotal } = parsed.data
 
   const { data: promo } = await supabase
     .from('promo_codes')

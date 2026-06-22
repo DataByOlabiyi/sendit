@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -32,11 +32,17 @@ const nextStatus: Partial<Record<OrderStatus, { status: OrderStatus; label: stri
 export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [proofImage, setProofImage] = useState<File | null>(null)
+  const proofObjectUrl = useRef<string | null>(null)
   const [isTrackingLocation, setIsTrackingLocation] = useState(false)
   const [showFailureModal, setShowFailureModal] = useState(false)
   const [failureReason, setFailureReason] = useState('')
   const [showCodModal, setShowCodModal] = useState(false)
   const [codConfirmed, setCodConfirmed] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpInput, setOtpInput] = useState('')
+  const [otpVerified, setOtpVerified] = useState(false)
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpLoading, setOtpLoading] = useState(false)
   const router = useRouter()
 
   const isOwnOrder = order.rider_id === riderId
@@ -50,34 +56,36 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return
 
     setIsTrackingLocation(true)
-    const watchId = navigator.geolocation.watchPosition(
-      async (position) => {
-        // Lightweight PATCH instead of Server Action — avoids Next.js RSC
-        // overhead on every GPS ping
-        fetch('/api/rider/location', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+
+    // Poll every 5 seconds instead of watchPosition to avoid flooding the backend
+    // with sub-second updates from high-accuracy GPS hardware.
+    const intervalId = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          fetch('/api/rider/location', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            }),
+          }).catch(console.error)
+
+          const supabase = createClient()
+          await supabase.from('order_tracking').insert({
+            order_id: order.id,
+            rider_id: riderId,
             lat: position.coords.latitude,
             lng: position.coords.longitude,
-          }),
-        }).catch(console.error)
-
-        // Insert into order_tracking for breadcrumb history
-        const supabase = createClient()
-        await supabase.from('order_tracking').insert({
-          order_id: order.id,
-          rider_id: riderId,
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        })
-      },
-      (error) => console.error('GPS error:', error),
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
-    )
+          })
+        },
+        (error) => console.error('GPS error:', error),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 4000 },
+      )
+    }, 5000)
 
     return () => {
-      navigator.geolocation.clearWatch(watchId)
+      clearInterval(intervalId)
       setIsTrackingLocation(false)
     }
   }, [order.status, isOwnOrder, riderId, order.id])
@@ -158,6 +166,44 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  async function handleGenerateOtp() {
+    setOtpLoading(true)
+    setOtpError(null)
+    try {
+      const res = await fetch('/api/orders/generate-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          recipientPhone: order.users?.phone ?? undefined,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setOtpError(data.error ?? 'Failed to generate OTP'); return }
+      setOtpSent(true)
+      toast.success(order.users?.phone ? 'OTP sent to recipient' : 'OTP generated')
+    } catch { setOtpError('Network error') }
+    finally { setOtpLoading(false) }
+  }
+
+  async function handleVerifyOtp() {
+    if (otpInput.length !== 4) return
+    setOtpLoading(true)
+    setOtpError(null)
+    try {
+      const res = await fetch('/api/orders/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, otp: otpInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setOtpError(data.error ?? 'Incorrect OTP'); return }
+      setOtpVerified(true)
+      toast.success('Delivery verified!')
+    } catch { setOtpError('Network error') }
+    finally { setOtpLoading(false) }
   }
 
   async function handleFailedDelivery() {
@@ -323,6 +369,68 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         )}
       </div>
 
+      {/* Delivery OTP verification */}
+      {isOwnOrder && order.status === 'in_transit' && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Verify Delivery</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Send a 4-digit code to the recipient to confirm handoff</p>
+            </div>
+            {otpVerified && (
+              <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2.5 py-1 rounded-full font-medium">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Verified
+              </span>
+            )}
+          </div>
+          {!otpVerified && (
+            <>
+              {!otpSent ? (
+                <button
+                  onClick={handleGenerateOtp}
+                  disabled={otpLoading}
+                  className="w-full py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium text-sm rounded-xl transition disabled:opacity-50"
+                >
+                  {otpLoading ? 'Sending…' : order.users?.phone ? 'Send OTP to Recipient' : 'Generate OTP'}
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-gray-500">
+                    {order.users?.phone ? 'OTP sent to recipient. Ask them for the code.' : 'Ask recipient for the 4-digit code.'}
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="\d{4}"
+                      maxLength={4}
+                      value={otpInput}
+                      onChange={(e) => { setOtpInput(e.target.value.replace(/\D/g, '')); setOtpError(null) }}
+                      placeholder="Enter 4-digit code"
+                      className="flex-1 px-3 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-center font-mono tracking-widest"
+                    />
+                    <button
+                      onClick={handleVerifyOtp}
+                      disabled={otpLoading || otpInput.length !== 4}
+                      className="px-4 py-2.5 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl transition disabled:opacity-50"
+                    >
+                      {otpLoading ? '…' : 'Verify'}
+                    </button>
+                  </div>
+                  {otpError && <p className="text-xs text-red-500">{otpError}</p>}
+                  <button onClick={handleGenerateOtp} disabled={otpLoading} className="text-xs text-gray-400 hover:text-gray-600">
+                    Resend OTP
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Proof of delivery upload */}
       {isOwnOrder && order.status === 'in_transit' && (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
@@ -333,13 +441,22 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
               type="file"
               accept="image/*"
               capture="environment"
-              onChange={(e) => setProofImage(e.target.files?.[0] ?? null)}
+              onChange={(e) => {
+                if (proofObjectUrl.current) URL.revokeObjectURL(proofObjectUrl.current)
+                proofObjectUrl.current = null
+                setProofImage(e.target.files?.[0] ?? null)
+              }}
               className="sr-only"
             />
             {proofImage ? (
               <div className="rounded-xl overflow-hidden border-2 border-green-400">
                 <img
-                  src={URL.createObjectURL(proofImage)}
+                  src={(() => {
+                    if (!proofObjectUrl.current) {
+                      proofObjectUrl.current = URL.createObjectURL(proofImage)
+                    }
+                    return proofObjectUrl.current
+                  })()}
                   alt="Proof of delivery preview"
                   className="w-full max-h-64 object-cover"
                 />

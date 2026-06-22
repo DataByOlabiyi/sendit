@@ -1,14 +1,5 @@
 import { z } from 'zod'
-
-const latSchema = z
-  .number({ invalid_type_error: 'Latitude must be a number' })
-  .min(-90, 'Latitude must be ≥ -90')
-  .max(90, 'Latitude must be ≤ 90')
-
-const lngSchema = z
-  .number({ invalid_type_error: 'Longitude must be a number' })
-  .min(-180, 'Longitude must be ≥ -180')
-  .max(180, 'Longitude must be ≤ 180')
+import { latSchema, lngSchema } from './common'
 
 export const updateProfileSchema = z.object({
   full_name: z.string().min(2, 'Full name must be at least 2 characters'),

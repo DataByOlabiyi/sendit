@@ -1,11 +1,29 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 
-// Per-order wrong-attempt counter. Keyed by order ID.
-// TODO: replace with Redis/Upstash for multi-replica deployments.
-const otpAttempts = new Map<string, number>()
+const verifyOtpSchema = z.object({
+  orderId: z.string().uuid('Invalid order ID'),
+  otp: z.string().length(4, 'OTP must be 4 digits').regex(/^\d{4}$/, 'OTP must be numeric'),
+})
+
 const MAX_OTP_ATTEMPTS = 5
+
+// Reproduces the same HMAC used in generate-otp/route.ts.
+async function hashOtpForOrder(otp: string, orderId: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(orderId),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(otp))
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 // Called by the rider when the recipient tells them the OTP.
 // On success, marks delivery_otp_verified_at.
@@ -14,14 +32,18 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { orderId, otp } = await request.json()
-  if (!orderId || !otp) return NextResponse.json({ error: 'orderId and otp required' }, { status: 400 })
+  const body = await request.json()
+  const parsed = verifyOtpSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
+  }
+  const { orderId, otp } = parsed.data
 
   const admin = createAdminClient()
 
   const { data: order } = await admin
     .from('orders')
-    .select('id, status, delivery_otp, delivery_otp_verified_at, rider_id')
+    .select('id, status, delivery_otp_hash, delivery_otp_attempts, delivery_otp_verified_at, rider_id')
     .eq('id', orderId)
     .single()
 
@@ -45,28 +67,39 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, already_verified: true })
   }
 
-  const attempts = otpAttempts.get(orderId) ?? 0
-  if (attempts >= MAX_OTP_ATTEMPTS) {
+  // Reject if no OTP has been generated yet for this order.
+  if (!order.delivery_otp_hash) {
+    return NextResponse.json({ error: 'OTP has not been generated for this order yet.' }, { status: 400 })
+  }
+
+  // Atomically increment BEFORE checking the hash — prevents two concurrent
+  // requests from both reading attempts=4, both passing the limit check, and
+  // both getting a free guess. The increment RPC returns the new count so we
+  // can still tell the caller how many attempts remain.
+  const { data: newAttempts } = await admin.rpc('increment_otp_attempts', { p_order_id: orderId })
+  const attemptCount = newAttempts as number
+
+  if (attemptCount > MAX_OTP_ATTEMPTS) {
     return NextResponse.json(
       { error: 'Too many incorrect attempts. Contact support to unlock this delivery.' },
       { status: 429 },
     )
   }
 
-  if (order.delivery_otp !== otp.trim()) {
-    otpAttempts.set(orderId, attempts + 1)
-    const remaining = MAX_OTP_ATTEMPTS - (attempts + 1)
+  const submittedHash = await hashOtpForOrder(otp.trim(), orderId)
+
+  if (order.delivery_otp_hash !== submittedHash) {
+    const remaining = MAX_OTP_ATTEMPTS - attemptCount
     return NextResponse.json(
-      { error: `Incorrect OTP. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` },
+      { error: `Incorrect OTP. ${remaining > 0 ? `${remaining} attempt${remaining === 1 ? '' : 's'} remaining.` : 'No attempts remaining. Contact support.'}` },
       { status: 400 },
     )
   }
 
-  otpAttempts.delete(orderId)
-
+  // Correct OTP — reset counter and mark verified.
   await admin
     .from('orders')
-    .update({ delivery_otp_verified_at: new Date().toISOString() })
+    .update({ delivery_otp_verified_at: new Date().toISOString(), delivery_otp_attempts: 0 })
     .eq('id', orderId)
 
   return NextResponse.json({ success: true })

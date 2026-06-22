@@ -30,7 +30,7 @@ export default async function RiderOnboardingPage() {
               {rider?.rejection_reason && (
                 <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl text-left">
                   <p className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">Rejection reason</p>
-                  <p className="text-sm text-red-600">{rider.rejection_reason}</p>
+                  <p className="text-sm text-red-600 break-words">{rider.rejection_reason}</p>
                 </div>
               )}
             </>

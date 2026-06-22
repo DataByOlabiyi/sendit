@@ -10,6 +10,7 @@ interface CustomerDashboardProps {
   recentOrders: Order[]
   activeOrders: Order[]
   totalDeliveries: number
+  walletBalance?: number
 }
 
 export function CustomerDashboard({
@@ -17,6 +18,7 @@ export function CustomerDashboard({
   recentOrders,
   activeOrders,
   totalDeliveries,
+  walletBalance = 0,
 }: CustomerDashboardProps) {
   const firstName = profile.full_name.split(' ')[0]
 
@@ -64,6 +66,27 @@ export function CustomerDashboard({
                 </div>
               </div>
             </div>
+
+            {/* Wallet balance banner */}
+            {walletBalance > 0 && (
+              <Link
+                href="/profile"
+                className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-100 hover:border-orange-200 transition mb-6"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                    <svg className="w-4.5 h-4.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Wallet Balance</p>
+                    <p className="text-sm font-bold text-gray-900">{formatCurrency(walletBalance)}</p>
+                  </div>
+                </div>
+                <span className="text-xs text-orange-500 font-medium">Top up</span>
+              </Link>
+            )}
 
             {/* Book CTA */}
             <Link
@@ -159,7 +182,7 @@ function RecentOrders({ recentOrders }: { recentOrders: Order[] }) {
             <Link
               key={order.id}
               href={`/orders/${order.id}`}
-              className="flex items-center justify-between bg-white rounded-xl p-4 border border-gray-100 hover:border-orange-200 transition"
+              className="flex items-center justify-between bg-white rounded-2xl p-4 border border-gray-100 hover:border-orange-200 transition"
             >
               <div className="flex-1 min-w-0 mr-4">
                 <p className="text-sm font-medium text-gray-900 truncate">{order.delivery_address}</p>

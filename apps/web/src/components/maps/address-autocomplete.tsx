@@ -64,7 +64,10 @@ export function AddressAutocomplete({
         onChange={(e) => {
           handleChange(e.target.value)
           if (!isLoaded) {
-            // No Maps API — pass address with default Lagos coords so the form can proceed
+            // Maps API unavailable — coordinates will be approximate (Lagos centre).
+            // The booking step validates that lat/lng are present; the rider-match
+            // Edge Function uses the stored coordinates for dispatch, so inaccurate
+            // coords here will cause wrong pricing and mis-dispatch.
             onSelect({ address: e.target.value, lat: 6.5244, lng: 3.3792 })
           }
         }}
@@ -72,6 +75,11 @@ export function AddressAutocomplete({
         disabled={disabled}
         className={`w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400 disabled:bg-gray-50 disabled:text-gray-400 ${className ?? ''}`}
       />
+      {!isLoaded && inputValue.length > 2 && (
+        <p className="mt-1 text-xs text-amber-600">
+          ⚠️ Address search unavailable — coordinates may be inaccurate. Pricing could differ at checkout.
+        </p>
+      )}
 
       {isOpen && predictions.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">

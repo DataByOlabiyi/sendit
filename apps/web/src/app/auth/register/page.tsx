@@ -6,9 +6,9 @@ export const metadata: Metadata = { title: 'Create Account — SendIt' }
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string }>
+  searchParams: Promise<{ role?: string; ref?: string }>
 }) {
-  const { role } = await searchParams
+  const { role, ref } = await searchParams
   const initialRole = role === 'rider' ? 'rider' : 'customer'
 
   return (
@@ -78,7 +78,7 @@ export default async function RegisterPage({
             <span className="font-bold text-gray-900 text-lg tracking-tight">SendIt</span>
           </div>
 
-          <RegisterForm initialRole={initialRole} skipRolePicker={role === 'rider' || role === 'customer'} />
+          <RegisterForm initialRole={initialRole} skipRolePicker={role === 'rider' || role === 'customer'} referralCode={ref} />
         </div>
       </div>
     </div>

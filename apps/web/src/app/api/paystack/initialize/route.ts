@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { PRICING } from '@sendit/constants'
+
+const initializeSchema = z.object({
+  orderId: z.string().uuid('Invalid order ID'),
+  reference: z.string().min(1, 'Reference required'),
+})
 
 export async function POST(request: Request) {
   try {
@@ -13,11 +19,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { orderId, reference } = await request.json()
-
-    if (!orderId || !reference) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const body = await request.json()
+    const parsed = initializeSchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
+    const { orderId, reference } = parsed.data
 
     // Verify order belongs to this user and fetch the canonical total
     const { data: order } = await supabase

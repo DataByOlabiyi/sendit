@@ -9,6 +9,7 @@ import { DeliveryMap } from '@/components/maps/delivery-map'
 import { formatDistance, formatDuration, haversineDistance } from '@sendit/utils'
 import type { BookingData } from './booking-flow'
 import type { PlaceDetails } from '@/hooks/use-places-autocomplete'
+import type { OrderStopInput } from '@sendit/types'
 
 const schema = z.object({
   delivery_address: z.string().min(5, 'Enter a delivery address'),
@@ -29,6 +30,10 @@ interface StepDeliveryProps {
 export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryProps) {
   const [selectedPlace, setSelectedPlace] = useState<PlaceDetails | null>(
     data.delivery_lat ? { address: data.delivery_address ?? '', lat: data.delivery_lat, lng: data.delivery_lng ?? 0 } : null
+  )
+  const [extraStops, setExtraStops] = useState<Partial<OrderStopInput>[]>(data.extra_stops ?? [])
+  const [stopAddresses, setStopAddresses] = useState<PlaceDetails[]>(
+    (data.extra_stops ?? []).map((s) => ({ address: s.address ?? '', lat: s.lat ?? 0, lng: s.lng ?? 0 }))
   )
 
   const { handleSubmit, register, setValue, watch, formState: { errors } } = useForm<StepDeliveryData>({
@@ -54,8 +59,31 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
     ? haversineDistance(data.pickup_lat, data.pickup_lng, selectedPlace.lat, selectedPlace.lng)
     : null
 
+  function addStop() {
+    setExtraStops((prev) => [...prev, { sequence: prev.length + 2 }])
+    setStopAddresses((prev) => [...prev, { address: '', lat: 0, lng: 0 }])
+  }
+
+  function removeStop(idx: number) {
+    setExtraStops((prev) => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, sequence: i + 2 })))
+    setStopAddresses((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  function handleStopSelect(idx: number, details: PlaceDetails) {
+    setStopAddresses((prev) => prev.map((s, i) => i === idx ? details : s))
+    setExtraStops((prev) => prev.map((s, i) => i === idx
+      ? { ...s, address: details.address, lat: details.lat, lng: details.lng }
+      : s
+    ))
+  }
+
   function onSubmit(formData: StepDeliveryData) {
-    onUpdate(formData)
+    const validStops = extraStops.filter((s) => s.address && s.lat && s.lng) as OrderStopInput[]
+    onUpdate({
+      ...formData,
+      extra_stops: validStops.length > 0 ? validStops : undefined,
+      is_multi_stop: validStops.length > 0,
+    })
     onNext()
   }
 
@@ -96,6 +124,39 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
           <p className="text-xs text-gray-400 mt-1">Helps the rider find your location easily</p>
           {errors.delivery_landmark && (
             <p className="mt-1.5 text-xs text-red-500">{errors.delivery_landmark.message}</p>
+          )}
+        </div>
+
+        {/* Multi-stop: extra drop-off points */}
+        <div className="mt-4">
+          {extraStops.length > 0 && (
+            <div className="space-y-3 mb-3">
+              {extraStops.map((stop, idx) => (
+                <div key={idx} className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    Stop {idx + 2}
+                    <button type="button" onClick={() => removeStop(idx)} className="ml-2 text-xs text-red-400 hover:text-red-600 font-normal">Remove</button>
+                  </label>
+                  <AddressAutocomplete
+                    value={stopAddresses[idx]?.address ?? ''}
+                    placeholder={`Address for stop ${idx + 2}`}
+                    onSelect={(details) => handleStopSelect(idx, details)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          {selectedPlace && (
+            <button
+              type="button"
+              onClick={addStop}
+              className="flex items-center gap-1.5 text-sm text-orange-500 hover:text-orange-700 font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add another stop
+            </button>
           )}
         </div>
 

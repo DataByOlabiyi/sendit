@@ -1,5 +1,15 @@
 import type { PackageSize, PaymentMethod, OrderStatus, UserRole } from './enums'
 
+export interface OrderStopInput {
+  sequence: number
+  address: string
+  lat: number
+  lng: number
+  landmark?: string
+  contact_name?: string
+  contact_phone?: string
+}
+
 export interface CreateOrderInput {
   pickup_address: string
   pickup_lat: number
@@ -17,6 +27,11 @@ export interface CreateOrderInput {
   payment_method: PaymentMethod
   promo_id?: string
   promo_discount?: number
+  is_scheduled?: boolean
+  scheduled_pickup_at?: string
+  preferred_time_slot?: 'morning' | 'afternoon' | 'evening' | 'asap'
+  extra_stops?: OrderStopInput[]
+  is_multi_stop?: boolean
 }
 
 export interface UpdateOrderStatusInput {

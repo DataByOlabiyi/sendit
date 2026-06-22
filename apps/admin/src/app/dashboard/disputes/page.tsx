@@ -31,7 +31,7 @@ export default async function DisputesPage() {
         <p className="text-sm text-gray-500 mt-1">Review and resolve customer disputes</p>
       </div>
 
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Open</p>
           <p className="text-2xl font-bold text-yellow-600 mt-1">{counts.open}</p>

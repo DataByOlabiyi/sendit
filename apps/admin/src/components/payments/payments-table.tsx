@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { formatCurrency, formatDate } from '@sendit/utils'
+import { Pagination } from '@/components/ui/pagination'
 
 interface PaymentRow {
   id: string
@@ -29,6 +30,8 @@ const statusStyles: Record<string, string> = {
 export function PaymentsTable({ payments: initialPayments }: PaymentsTableProps) {
   const [payments, setPayments] = useState(initialPayments)
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
   const [refundTarget, setRefundTarget] = useState<PaymentRow | null>(null)
   const [refundReason, setRefundReason] = useState('')
   const [refunding, setRefunding] = useState(false)
@@ -40,6 +43,9 @@ export function PaymentsTable({ payments: initialPayments }: PaymentsTableProps)
       p.users?.email.toLowerCase().includes(search.toLowerCase()) ||
       (p.paystack_reference ?? '').toLowerCase().includes(search.toLowerCase()),
   )
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  function handleSearch(val: string) { setSearch(val); setPage(1) }
 
   async function handleRefund() {
     if (!refundTarget) return
@@ -76,7 +82,7 @@ export function PaymentsTable({ payments: initialPayments }: PaymentsTableProps)
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search by customer or reference..."
           className="w-full max-w-sm px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         />
@@ -105,7 +111,7 @@ export function PaymentsTable({ payments: initialPayments }: PaymentsTableProps)
                   </td>
                 </tr>
               ) : (
-                filtered.map((payment) => (
+                paginated.map((payment) => (
                   <tr key={payment.id} className="hover:bg-gray-50 transition">
                     <td className="px-5 py-4">
                       <p className="text-sm font-medium text-gray-900">{payment.users?.full_name ?? '—'}</p>
@@ -148,6 +154,15 @@ export function PaymentsTable({ payments: initialPayments }: PaymentsTableProps)
           </table>
         </div>
       </div>
+
+      <Pagination
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="payments"
+      />
 
       {/* Refund Confirmation Modal */}
       {refundTarget && (

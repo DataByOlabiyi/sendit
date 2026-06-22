@@ -13,11 +13,10 @@ import type { PackageSize, PricingEstimate } from '@sendit/types'
 interface StepConfirmProps {
   data: BookingData
   onBack: () => void
+  onSuccess?: () => void
 }
 
-const paymentOptions = [
-  { value: 'paystack', label: 'Pay with Card', icon: '💳' },
-]
+const PAYSTACK_OPTION = { value: 'paystack', label: 'Pay with Card / Bank', icon: '💳' }
 
 function clientFallbackPricing(data: BookingData): PricingEstimate {
   const distanceKm =
@@ -32,8 +31,8 @@ function clientFallbackPricing(data: BookingData): PricingEstimate {
   )
 }
 
-export function StepConfirm({ data, onBack }: StepConfirmProps) {
-  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'cash'>('paystack')
+export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'wallet'>('paystack')
   const [isLoading, setIsLoading] = useState(false)
   const [pricing, setPricing] = useState<PricingEstimate>(() => clientFallbackPricing(data))
   const [isPricingLoading, setIsPricingLoading] = useState(true)
@@ -42,6 +41,7 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
   const [promoId, setPromoId] = useState<string | null>(null)
   const [promoError, setPromoError] = useState<string | null>(null)
   const [validatingPromo, setValidatingPromo] = useState(false)
+  const [walletBalance, setWalletBalance] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -91,6 +91,19 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
     data.has_insurance,
   ])
 
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase
+        .from('customer_wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .maybeSingle()
+        .then(({ data }) => setWalletBalance(data?.balance ?? 0))
+    })
+  }, [])
+
   async function handleApplyPromo() {
     if (!promoCode.trim()) return
     setValidatingPromo(true)
@@ -137,6 +150,9 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         has_insurance: data.has_insurance ?? false,
         special_instructions: data.special_instructions,
         payment_method: paymentMethod,
+        is_scheduled: data.is_scheduled ?? false,
+        scheduled_pickup_at: data.scheduled_pickup_at,
+        preferred_time_slot: data.preferred_time_slot,
         promo_id: promoId ?? undefined,
         promo_discount: promoDiscount > 0 ? promoDiscount : undefined,
       })
@@ -147,9 +163,23 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
         return
       }
 
+      if (!result.orderId) {
+        toast.error('Order creation failed. Please try again.')
+        setIsLoading(false)
+        return
+      }
+
+      // Wallet payment — order is already marked as paid by the server action
+      if (paymentMethod === 'wallet') {
+        toast.success('Order placed and paid from wallet!')
+        onSuccess?.()
+        router.push(`/orders/${result.orderId}`)
+        return
+      }
+
       // Paystack payment — totalFee already has promo discount applied by the server action
       const payableAmount = result.totalFee ?? 0
-      if (result.orderId && result.totalFee) {
+      if (result.totalFee) {
         const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         const { data: profile } = await supabase.from('users').select('email').eq('id', user!.id).single()
@@ -174,7 +204,6 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
           reference,
           metadata: { orderId: result.orderId },
           onSuccess: async (ref) => {
-            // Verify payment
             const verifyRes = await fetch('/api/paystack/verify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -183,6 +212,7 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
 
             if (verifyRes.ok) {
               toast.success('Payment successful! Order placed.')
+              onSuccess?.()
               router.push(`/orders/${result.orderId}`)
             } else {
               toast.error('Payment verification failed. Contact support.')
@@ -312,36 +342,60 @@ export function StepConfirm({ data, onBack }: StepConfirmProps) {
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">Payment Method</h2>
         <div className="space-y-3">
-          {paymentOptions.map((option) => (
+          {/* Card / Bank */}
+          <button
+            type="button"
+            onClick={() => setPaymentMethod('paystack')}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition ${
+              paymentMethod === 'paystack' ? 'border-orange-500 bg-orange-50' : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <span className="text-xl">{PAYSTACK_OPTION.icon}</span>
+            <span className={`text-sm font-medium ${paymentMethod === 'paystack' ? 'text-orange-600' : 'text-gray-700'}`}>
+              {PAYSTACK_OPTION.label}
+            </span>
+          </button>
+
+          {/* Wallet */}
+          {walletBalance > 0 ? (
             <button
-              key={option.value}
               type="button"
-              onClick={() => setPaymentMethod(option.value as 'paystack' | 'cash')}
+              onClick={() => setPaymentMethod('wallet')}
+              disabled={walletBalance < Math.max(0, pricing.total_fee - promoDiscount)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition ${
-                paymentMethod === option.value
+                paymentMethod === 'wallet'
                   ? 'border-orange-500 bg-orange-50'
+                  : walletBalance < Math.max(0, pricing.total_fee - promoDiscount)
+                  ? 'border-gray-200 opacity-50 cursor-not-allowed'
                   : 'border-gray-200 hover:border-gray-300'
               }`}
             >
-              <span className="text-xl">{option.icon}</span>
-              <span className={`text-sm font-medium ${paymentMethod === option.value ? 'text-orange-600' : 'text-gray-700'}`}>
-                {option.label}
-              </span>
+              <span className="text-xl">👛</span>
+              <div className="flex-1 text-left">
+                <span className={`text-sm font-medium ${paymentMethod === 'wallet' ? 'text-orange-600' : 'text-gray-700'}`}>
+                  SendIt Wallet
+                </span>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Balance: {walletBalance >= Math.max(0, pricing.total_fee - promoDiscount)
+                    ? `₦${walletBalance.toLocaleString()} — sufficient`
+                    : `₦${walletBalance.toLocaleString()} — insufficient`}
+                </p>
+              </div>
             </button>
-          ))}
-          {/* Cash on delivery coming soon */}
-          <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-200 opacity-50 cursor-not-allowed select-none">
-            <span className="text-xl">💵</span>
-            <div className="flex-1 text-left">
-              <span className="text-sm font-medium text-gray-500">Cash on Delivery</span>
-              <p className="text-xs text-gray-400 mt-0.5">Coming soon — card payment only for now</p>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-gray-200 opacity-50 cursor-not-allowed select-none">
+              <span className="text-xl">👛</span>
+              <div className="flex-1 text-left">
+                <span className="text-sm font-medium text-gray-500">SendIt Wallet</span>
+                <p className="text-xs text-gray-400 mt-0.5">No balance — top up in Profile</p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Actions */}
-      <div className="sticky bottom-24 lg:static -mx-4 px-4 lg:mx-0 lg:px-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 lg:pt-0 lg:pb-4 lg:bg-none z-10">
+      <div className="sticky bottom-24 lg:static -mx-4 px-4 lg:mx-0 lg:px-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 lg:pt-0 lg:pb-0 lg:bg-none z-10">
         <div className="flex gap-3">
           <button
             type="button"

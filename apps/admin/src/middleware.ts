@@ -1,17 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Decodes a JWT payload without verifying the signature.
-// Safe here because getUser() has already verified the token with Supabase.
-function decodeJwtPayload(token: string): Record<string, unknown> {
-  try {
-    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')
-    return JSON.parse(atob(base64))
-  } catch {
-    return {}
-  }
-}
-
 export async function middleware(request: NextRequest) {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -41,7 +30,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Verify the token with Supabase (1 JWKS verification — no DB call)
+  // Verify the token with Supabase (JWKS verification — no DB call)
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
@@ -54,33 +43,16 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    // Prefer the JWT claim set by custom_access_token_hook (zero extra DB calls).
-    // Falls back to a DB query for tokens issued before the hook was registered.
-    const sessionCookie = request.cookies.getAll().find(
-      (c) => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'),
-    )
-    let role: string | undefined
+    // Always query the DB for the role — the decoded JWT claim cannot be trusted
+    // for authorisation because it is not re-verified after the getUser() call
+    // and a tampered claim could bypass the UI-layer admin check.
+    const { data: profile } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single()
 
-    if (sessionCookie) {
-      try {
-        const tokenData = JSON.parse(decodeURIComponent(sessionCookie.value))
-        const accessToken = Array.isArray(tokenData) ? tokenData[0] : tokenData?.access_token
-        if (accessToken) {
-          const claims = decodeJwtPayload(accessToken)
-          role = claims.user_role as string | undefined
-        }
-      } catch { /* fall through to DB */ }
-    }
-
-    if (!role) {
-      // Fallback DB query — only runs while tokens lack the custom claim
-      const { data: profile } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      role = profile?.role
-    }
+    const role = profile?.role
 
     if (role !== 'admin' && !isPublicPath) {
       const url = request.nextUrl.clone()

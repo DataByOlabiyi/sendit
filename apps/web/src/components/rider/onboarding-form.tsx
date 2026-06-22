@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { riderProfileSchema, type RiderProfileInput } from '@sendit/validations'
-import { createRiderProfileAction, uploadRiderDocumentAction } from '@/app/rider/profile-actions'
+import { createRiderProfileAction, uploadRiderDocumentAction, submitRiderKycAction } from '@/app/rider/profile-actions'
 import { createClient } from '@/lib/supabase/client'
 
 interface DocUploadState {
@@ -86,6 +86,8 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
   const [isLoading, setIsLoading] = useState(false)
   const [licenseDoc, setLicenseDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
   const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
+  const [bvn, setBvn] = useState('')
+  const [nin, setNin] = useState('')
   const router = useRouter()
 
   const { register, handleSubmit, formState: { errors } } = useForm<RiderProfileInput>({
@@ -144,10 +146,15 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
         return
       }
 
-      // Save document URLs to the newly created rider record
+      // Save document URLs and KYC details in parallel
+      const kycPayload = bvn.trim().length === 11 || nin.trim().length === 11
+        ? submitRiderKycAction({ bvn: bvn.trim(), nin: nin.trim() })
+        : Promise.resolve({ success: true })
+
       await Promise.all([
         uploadRiderDocumentAction('license', licenseDoc.url!),
         uploadRiderDocumentAction('vehicle', vehicleDoc.url!),
+        kycPayload,
       ])
 
       toast.success('Profile submitted! Awaiting admin approval.')
@@ -220,10 +227,11 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
               BVN <span className="text-gray-400 font-normal">(Bank Verification Number)</span>
             </label>
             <input
-              name="bvn"
               type="tel"
               inputMode="numeric"
               maxLength={11}
+              value={bvn}
+              onChange={(e) => setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
               placeholder="11-digit BVN"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
             />
@@ -233,10 +241,11 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
               NIN <span className="text-gray-400 font-normal">(National Identification Number)</span>
             </label>
             <input
-              name="nin"
               type="tel"
               inputMode="numeric"
               maxLength={11}
+              value={nin}
+              onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
               placeholder="11-digit NIN"
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
             />

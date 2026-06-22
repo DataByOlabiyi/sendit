@@ -5,24 +5,107 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import { formatCurrency } from '@sendit/utils'
 import { updateProfileSchema, type UpdateProfileInput } from '@sendit/validations'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@sendit/types'
+
+interface ReferralReward {
+  id: string
+  status: string
+  amount: number | null
+  created_at: string
+}
 
 interface ProfileFormProps {
   profile: User
   orderCount: number
   addressCount: number
+  referralRewards?: ReferralReward[]
+  walletBalance?: number
+  walletTotalCredited?: number
+  walletTotalSpent?: number
 }
 
-export function ProfileForm({ profile, orderCount, addressCount }: ProfileFormProps) {
+export function ProfileForm({ profile, orderCount, addressCount, referralRewards = [], walletBalance = 0, walletTotalCredited = 0, walletTotalSpent = 0 }: ProfileFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [isSendingReset, setIsSendingReset] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [topupAmount, setTopupAmount] = useState('')
+  const [isTopupLoading, setIsTopupLoading] = useState(false)
+  const [currentBalance, setCurrentBalance] = useState(walletBalance)
   const router = useRouter()
 
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<UpdateProfileInput>({
+  async function handleCopyCode() {
+    const code = profile.referral_code ?? ''
+    if (!code) return
+    await navigator.clipboard.writeText(code)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  async function handleCopyLink() {
+    const code = profile.referral_code ?? ''
+    if (!code) return
+    const url = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/register?ref=${code}`
+      : `/auth/register?ref=${code}`
+    await navigator.clipboard.writeText(url)
+    toast.success('Referral link copied!')
+  }
+
+  async function handleTopup() {
+    const amount = parseFloat(topupAmount)
+    if (!amount || amount < 100) { toast.error('Minimum top-up is ₦100'); return }
+    setIsTopupLoading(true)
+    try {
+      const initRes = await fetch('/api/wallet/initialize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      })
+      const initData = await initRes.json()
+      if (!initRes.ok) { toast.error(initData.error ?? 'Failed to initialize payment'); return }
+
+      const { loadPaystack, initializePaystackPayment } = await import('@/lib/paystack')
+      await loadPaystack()
+      await initializePaystackPayment({
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
+        email: profile.email,
+        amount,
+        reference: initData.reference,
+        metadata: { type: 'wallet_topup' },
+        onSuccess: async (ref: string) => {
+          const verifyRes = await fetch('/api/wallet/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference: ref }),
+          })
+          if (verifyRes.ok) {
+            const { amount: credited } = await verifyRes.json()
+            setCurrentBalance((prev) => prev + credited)
+            setTopupAmount('')
+            toast.success(`₦${credited.toLocaleString()} added to your wallet!`)
+          } else {
+            toast.error('Payment verified but wallet update failed — contact support')
+          }
+        },
+        onClose: () => { setIsTopupLoading(false) },
+      })
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setIsTopupLoading(false)
+    }
+  }
+
+  const pendingRewards = referralRewards.filter((r) => r.status === 'pending').length
+  const creditedRewards = referralRewards.filter((r) => r.status === 'credited')
+  const totalCredited = creditedRewards.reduce((sum, r) => sum + (r.amount ?? 0), 0)
+
+  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<UpdateProfileInput>({
     resolver: zodResolver(updateProfileSchema),
     defaultValues: {
       full_name: profile.full_name,
@@ -39,6 +122,7 @@ export function ProfileForm({ profile, orderCount, addressCount }: ProfileFormPr
         .update({ full_name: data.full_name, phone: data.phone })
         .eq('id', profile.id)
       if (error) throw error
+      reset({ full_name: data.full_name, phone: data.phone })
       toast.success('Profile updated')
     } catch {
       toast.error('Failed to update profile')
@@ -82,6 +166,7 @@ export function ProfileForm({ profile, orderCount, addressCount }: ProfileFormPr
 
   const initials = profile.full_name
     .split(' ')
+    .filter(Boolean)
     .map((n) => n[0])
     .slice(0, 2)
     .join('')
@@ -209,6 +294,95 @@ export function ProfileForm({ profile, orderCount, addressCount }: ProfileFormPr
             {isSendingReset ? 'Sending…' : 'Send Password Reset Email'}
           </button>
         </div>
+
+        {/* Wallet */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-1">SendIt Wallet</h2>
+          <p className="text-xs text-gray-400 mb-4">Add funds to pay for orders instantly</p>
+
+          <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl mb-4">
+            <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Available Balance</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(currentBalance)}</p>
+            </div>
+          </div>
+
+          {walletTotalCredited > 0 && (
+            <div className="flex gap-4 mb-4 text-xs text-gray-500">
+              <span>Total credited: <strong className="text-gray-700">{formatCurrency(walletTotalCredited)}</strong></span>
+              <span>Total spent: <strong className="text-gray-700">{formatCurrency(walletTotalSpent)}</strong></span>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={topupAmount}
+              onChange={(e) => setTopupAmount(e.target.value)}
+              placeholder="Amount (₦)"
+              min="100"
+              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            />
+            <button
+              type="button"
+              onClick={handleTopup}
+              disabled={isTopupLoading || !topupAmount}
+              className="px-5 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm shrink-0"
+            >
+              {isTopupLoading ? 'Loading…' : 'Add Funds'}
+            </button>
+          </div>
+        </div>
+
+        {/* Referral */}
+        {profile.referral_code && (
+          <div className="bg-white rounded-2xl border border-gray-100 p-5">
+            <h2 className="text-sm font-semibold text-gray-900 mb-1">Refer & Earn</h2>
+            <p className="text-xs text-gray-400 mb-4">Share your code — you both earn ₦500 credit after their first delivery</p>
+
+            <div className="flex items-center gap-2 mb-3">
+              <div className="flex-1 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-200">
+                <span className="font-mono text-base font-bold tracking-widest text-gray-900">{profile.referral_code}</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition shrink-0"
+              >
+                {codeCopied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-orange-200 text-orange-600 text-sm font-medium rounded-xl hover:bg-orange-50 transition"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+              </svg>
+              Share referral link
+            </button>
+
+            {referralRewards.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-1">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Pending rewards</span>
+                  <span className="font-semibold text-yellow-600">{pendingRewards}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-500">Total credited</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(totalCredited / 100)}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Danger Zone */}
         <div className="bg-white rounded-2xl border border-red-100 p-5">

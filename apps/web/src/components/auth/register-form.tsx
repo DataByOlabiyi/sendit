@@ -14,6 +14,7 @@ type Role = 'customer' | 'rider'
 interface RegisterFormProps {
   initialRole?: Role
   skipRolePicker?: boolean
+  referralCode?: string
 }
 
 function EyeIcon({ open }: { open: boolean }) {
@@ -32,7 +33,7 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-export function RegisterForm({ initialRole = 'customer', skipRolePicker = false }: RegisterFormProps) {
+export function RegisterForm({ initialRole = 'customer', skipRolePicker = false, referralCode }: RegisterFormProps) {
   const [step, setStep] = useState<1 | 2 | 3>(skipRolePicker ? 2 : 1)
   const [selectedRole, setSelectedRole] = useState<Role>(initialRole)
   const [isLoading, setIsLoading] = useState(false)
@@ -55,7 +56,7 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
   async function onSubmit(data: RegisterInput) {
     setIsLoading(true)
     try {
-      const result = await registerAction(data)
+      const result = await registerAction(data, referralCode)
       if (result?.error) {
         toast.error(result.error)
       } else {
@@ -73,7 +74,15 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
     setResending(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.auth.resend({ type: 'signup', email: registeredEmail })
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: registeredEmail,
+        options: {
+          emailRedirectTo: process.env.NEXT_PUBLIC_APP_URL
+            ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+            : undefined,
+        },
+      })
       if (error) {
         toast.error(error.message)
       } else {
@@ -208,6 +217,15 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false 
           </svg>
           Back
         </button>
+      )}
+
+      {referralCode && (
+        <div className="mb-4 flex items-center gap-2.5 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h3.5" />
+          </svg>
+          <p className="text-xs text-green-700 font-medium">You were referred by a friend — you&apos;ll both earn rewards after your first delivery!</p>
+        </div>
       )}
 
       <div className="mb-6">

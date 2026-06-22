@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { StepPickup } from './step-pickup'
 import { StepDelivery } from './step-delivery'
 import { StepPackage } from './step-package'
@@ -8,6 +8,9 @@ import { StepConfirm } from './step-confirm'
 import type { CreateOrderInput } from '@sendit/types'
 
 export type BookingData = Partial<CreateOrderInput>
+
+const STORAGE_KEY = 'sendit_booking_draft'
+const DEFAULT_DATA: BookingData = { is_fragile: false, has_insurance: false, payment_method: 'paystack' }
 
 const steps = [
   { number: 1, label: 'Pickup' },
@@ -18,14 +21,38 @@ const steps = [
 
 export function BookingFlow() {
   const [currentStep, setCurrentStep] = useState(1)
-  const [bookingData, setBookingData] = useState<BookingData>({
-    is_fragile: false,
-    has_insurance: false,
-    payment_method: 'paystack',
-  })
+  const [bookingData, setBookingData] = useState<BookingData>(DEFAULT_DATA)
+
+  // Restore draft on mount
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem(STORAGE_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved) as { step: number; data: BookingData }
+        setCurrentStep(parsed.step ?? 1)
+        setBookingData({ ...DEFAULT_DATA, ...parsed.data })
+      }
+    } catch {
+      // Corrupted draft — start fresh
+      sessionStorage.removeItem(STORAGE_KEY)
+    }
+  }, [])
+
+  // Persist draft on every change
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ step: currentStep, data: bookingData }))
+    } catch {
+      // Storage full or unavailable — non-fatal
+    }
+  }, [currentStep, bookingData])
 
   function updateBookingData(data: Partial<BookingData>) {
     setBookingData((prev) => ({ ...prev, ...data }))
+  }
+
+  function clearDraft() {
+    sessionStorage.removeItem(STORAGE_KEY)
   }
 
   function nextStep() {
@@ -81,7 +108,7 @@ export function BookingFlow() {
         <StepPackage data={bookingData} onUpdate={updateBookingData} onNext={nextStep} onBack={prevStep} />
       )}
       {currentStep === 4 && (
-        <StepConfirm data={bookingData} onBack={prevStep} />
+        <StepConfirm data={bookingData} onBack={prevStep} onSuccess={clearDraft} />
       )}
     </div>
   )

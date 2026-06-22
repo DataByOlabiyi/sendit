@@ -13,9 +13,8 @@ export type OrderStatus =
 
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
-// 'wallet' removed until the wallet top-up and deduction flows are implemented
 // 'cash' kept for historical DB records; disabled in booking UI until cash-collection audit is built
-export type PaymentMethod = 'paystack' | 'cash'
+export type PaymentMethod = 'paystack' | 'wallet' | 'cash'
 
 export type VehicleType = 'bicycle' | 'motorcycle' | 'car' | 'van'
 

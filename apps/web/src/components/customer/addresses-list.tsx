@@ -31,6 +31,10 @@ export function AddressesList({ addresses: initialAddresses, userId }: Addresses
     setIsSaving(true)
     try {
       const supabase = createClient()
+      const { count } = await supabase
+        .from('addresses')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
       const { data, error } = await supabase
         .from('addresses')
         .insert({
@@ -39,7 +43,7 @@ export function AddressesList({ addresses: initialAddresses, userId }: Addresses
           full_address: place.address,
           lat: place.lat,
           lng: place.lng,
-          is_default: addresses.length === 0,
+          is_default: (count ?? 0) === 0,
         })
         .select()
         .single()
@@ -71,7 +75,14 @@ export function AddressesList({ addresses: initialAddresses, userId }: Addresses
 
   async function handleSetDefault(id: string) {
     const supabase = createClient()
-    await supabase.from('addresses').update({ is_default: false }).eq('user_id', userId)
+    const { error: clearError } = await supabase
+      .from('addresses')
+      .update({ is_default: false })
+      .eq('user_id', userId)
+    if (clearError) {
+      toast.error('Failed to set default address')
+      return
+    }
     const { error } = await supabase.from('addresses').update({ is_default: true }).eq('id', id)
     if (error) {
       toast.error('Failed to set default address')

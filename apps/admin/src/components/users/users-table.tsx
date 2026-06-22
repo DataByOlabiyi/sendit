@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { formatDate } from '@sendit/utils'
 import { suspendUserAction, reactivateUserAction } from '@/app/dashboard/users/actions'
+import { Pagination } from '@/components/ui/pagination'
 import type { User } from '@sendit/types'
 
 interface UsersTableProps {
@@ -14,12 +15,17 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
   const [users, setUsers] = useState(initialUsers)
   const [search, setSearch] = useState('')
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
   const filtered = users.filter(
     (u) =>
       u.full_name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase())
   )
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  function handleSearch(val: string) { setSearch(val); setPage(1) }
 
   async function handleToggleStatus(user: User) {
     setLoadingId(user.id)
@@ -47,7 +53,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search by name or email..."
           className="w-full max-w-sm px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         />
@@ -73,7 +79,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
                   </td>
                 </tr>
               ) : (
-                filtered.map((user) => (
+                paginated.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition">
                     <td className="px-5 py-4">
                       <div>
@@ -110,6 +116,15 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
           </table>
         </div>
       </div>
+
+      <Pagination
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="customers"
+      />
     </div>
   )
 }

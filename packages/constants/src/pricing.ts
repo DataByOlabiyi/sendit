@@ -31,6 +31,27 @@ export const ORDER_STATUS_LABELS = {
   returned: 'Returned',
 } as const
 
+export const VEHICLE_TYPE_LABELS = {
+  bicycle: 'Bicycle',
+  motorcycle: 'Motorcycle',
+  car: 'Car',
+  van: 'Van',
+} as const
+
+export const RIDER_STATUS_LABELS = {
+  pending: 'Pending Review',
+  approved: 'Approved',
+  suspended: 'Suspended',
+  rejected: 'Rejected',
+} as const
+
+export const DISPUTE_STATUS_LABELS = {
+  open: 'Open',
+  under_review: 'Under Review',
+  resolved: 'Resolved',
+  rejected: 'Rejected',
+} as const
+
 export const ORDER_STATUS_COLORS = {
   pending: 'yellow',
   accepted: 'blue',

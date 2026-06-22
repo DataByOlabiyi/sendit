@@ -131,7 +131,7 @@ export function AnalyticsDashboard({ stats, recentOrders, recentPayments, unitEc
   return (
     <div className="space-y-6">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {statCards.map((card) => (
           <div key={card.label} className="bg-white rounded-2xl border border-gray-100 p-5">
             <div className={`inline-flex items-center justify-center w-9 h-9 rounded-xl ${card.bg} mb-3`}>

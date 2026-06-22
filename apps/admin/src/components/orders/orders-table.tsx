@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
+import { Pagination } from '@/components/ui/pagination'
 import type { OrderStatus } from '@sendit/types'
 
 interface OrderRow {
@@ -14,6 +15,7 @@ interface OrderRow {
   pickup_address: string
   delivery_address: string
   created_at: string
+  is_scheduled: boolean
   users: { full_name: string; email: string } | null
 }
 
@@ -24,17 +26,32 @@ interface AdminOrdersTableProps {
 export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000)
 
   const filtered = orders.filter((o) => {
     const matchesSearch =
       o.delivery_address.toLowerCase().includes(search.toLowerCase()) ||
       o.users?.full_name.toLowerCase().includes(search.toLowerCase()) ||
       o.id.toLowerCase().includes(search.toLowerCase())
+    if (statusFilter === 'orphaned') {
+      return matchesSearch && o.status === 'pending' && o.payment_status === 'pending' && new Date(o.created_at) < thirtyMinAgo
+    }
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
-  const statuses = ['all', 'pending', 'accepted', 'picked_up', 'in_transit', 'delivered', 'cancelled']
+  const orphanedCount = orders.filter(
+    (o) => o.status === 'pending' && o.payment_status === 'pending' && new Date(o.created_at) < thirtyMinAgo
+  ).length
+
+  const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+  const statuses = ['all', 'pending', 'accepted', 'picked_up', 'in_transit', 'delivered', 'cancelled', 'orphaned']
+
+  function handleSearch(val: string) { setSearch(val); setPage(1) }
+  function handleStatusFilter(val: string) { setStatusFilter(val); setPage(1) }
 
   return (
     <div>
@@ -42,23 +59,27 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           placeholder="Search orders..."
-          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-          style={{ fontSize: '16px' }}
+          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-base lg:text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
         />
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           {statuses.map((s) => (
             <button
               key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium capitalize transition touch-manipulation ${
+              onClick={() => handleStatusFilter(s)}
+              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium capitalize transition touch-manipulation flex items-center gap-1.5 ${
                 statusFilter === s
-                  ? 'bg-orange-500 text-white'
+                  ? s === 'orphaned' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300'
               }`}
             >
-              {s.replace('_', ' ')}
+              {s === 'orphaned' ? 'Orphaned' : s.replace('_', ' ')}
+              {s === 'orphaned' && orphanedCount > 0 && (
+                <span className={`inline-flex items-center justify-center w-4 h-4 text-xs rounded-full font-bold ${statusFilter === 'orphaned' ? 'bg-white text-red-600' : 'bg-red-500 text-white'}`}>
+                  {orphanedCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -71,11 +92,16 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
             <p className="text-sm text-gray-400">No orders found</p>
           </div>
         ) : (
-          filtered.map((order) => (
+          paginated.map((order) => (
             <div key={order.id} className="bg-white rounded-2xl border border-gray-100 p-4">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-xs font-mono text-gray-500">{order.id.slice(0, 8).toUpperCase()}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-xs font-mono text-gray-500">{order.id.slice(0, 8).toUpperCase()}</p>
+                    {order.is_scheduled && (
+                      <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">SCHED</span>
+                    )}
+                  </div>
                   <p className="text-sm font-medium text-gray-900 mt-0.5">{order.users?.full_name ?? '—'}</p>
                 </div>
                 <StatusBadge status={order.status as OrderStatus} />
@@ -119,10 +145,22 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filtered.map((order) => (
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-400">
+                    No orders found
+                  </td>
+                </tr>
+              )}
+              {paginated.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50 transition">
                   <td className="px-5 py-4">
-                    <p className="text-xs font-mono text-gray-500">{order.id.slice(0, 8).toUpperCase()}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-mono text-gray-500">{order.id.slice(0, 8).toUpperCase()}</p>
+                      {order.is_scheduled && (
+                        <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">SCHED</span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 capitalize mt-0.5">{order.package_size.replace('_', ' ')}</p>
                   </td>
                   <td className="px-5 py-4">
@@ -151,6 +189,15 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
           </table>
         </div>
       </div>
+
+      <Pagination
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="orders"
+      />
     </div>
   )
 }

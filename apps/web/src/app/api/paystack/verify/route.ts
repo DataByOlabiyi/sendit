@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
+
+const verifySchema = z.object({
+  reference: z.string().min(1, 'Reference required'),
+  orderId: z.string().uuid('Invalid order ID'),
+})
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +20,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { reference, orderId } = await request.json()
-
-    if (!reference || !orderId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    const body = await request.json()
+    const parsed = verifySchema.safeParse(body)
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.issues[0]?.message ?? 'Invalid input' }, { status: 400 })
     }
+    const { reference, orderId } = parsed.data
 
     // Fetch order for ownership check and canonical fee amount
     const { data: order } = await supabase

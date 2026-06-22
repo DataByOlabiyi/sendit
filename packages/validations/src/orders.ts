@@ -1,17 +1,5 @@
 import { z } from 'zod'
-
-// Reusable coordinate validators with geographic range enforcement.
-// Prevents clients from supplying out-of-range values that could manipulate
-// pricing calculations or produce nonsensical haversine results.
-const latSchema = z
-  .number({ invalid_type_error: 'Latitude must be a number' })
-  .min(-90, 'Latitude must be ≥ -90')
-  .max(90, 'Latitude must be ≤ 90')
-
-const lngSchema = z
-  .number({ invalid_type_error: 'Longitude must be a number' })
-  .min(-180, 'Longitude must be ≥ -180')
-  .max(180, 'Longitude must be ≤ 180')
+import { latSchema, lngSchema } from './common'
 
 export const packageDetailsSchema = z.object({
   package_description: z.string().min(3, 'Describe the package').max(200),
@@ -36,11 +24,27 @@ export const createOrderSchema = z.object({
   is_fragile: z.boolean().default(false),
   has_insurance: z.boolean().default(false),
   special_instructions: z.string().max(500).optional(),
-  // Cash disabled in booking UI until cash-collection audit mechanism is built
-  payment_method: z.enum(['paystack']),
+  // 'cash' disabled in booking UI until cash-collection audit mechanism is built
+  payment_method: z.enum(['paystack', 'wallet']),
   promo_id: z.string().uuid().optional(),
   promo_discount: z.number().int().min(0).optional(),
-})
+  is_scheduled: z.boolean().default(false),
+  scheduled_pickup_at: z.string().datetime({ offset: true }).optional(),
+  preferred_time_slot: z.enum(['morning', 'afternoon', 'evening', 'asap']).default('asap'),
+  is_multi_stop: z.boolean().default(false),
+  extra_stops: z.array(z.object({
+    sequence: z.number().int().positive(),
+    address: z.string().min(5, 'Stop address is required'),
+    lat: latSchema,
+    lng: lngSchema,
+    landmark: z.string().max(200).optional(),
+    contact_name: z.string().max(100).optional(),
+    contact_phone: z.string().max(20).optional(),
+  })).max(10, 'Maximum 10 extra stops').optional(),
+}).refine(
+  (data) => !data.is_scheduled || !!data.scheduled_pickup_at,
+  { message: 'Scheduled pickup time is required for scheduled orders', path: ['scheduled_pickup_at'] }
+)
 
 export const reviewSchema = z.object({
   rating: z.number().min(1).max(5),

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import { riderProfileSchema } from '@sendit/validations'
+import { riderProfileSchema, riderKycSchema } from '@sendit/validations'
 
 export async function createRiderProfileAction(data: unknown) {
   const supabase = await createClient()
@@ -80,6 +80,30 @@ export async function uploadRiderDocumentAction(docType: 'license' | 'vehicle', 
     .eq('user_id', user.id)
 
   if (error) return { error: 'Failed to save document' }
+
+  revalidatePath('/rider/onboarding')
+  revalidatePath('/rider/profile')
+  return { success: true }
+}
+
+export async function submitRiderKycAction(input: unknown) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const parsed = riderKycSchema.safeParse(input)
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Invalid KYC data' }
+  }
+
+  const { bvn, nin } = parsed.data
+
+  const { error } = await supabase
+    .from('riders')
+    .update({ bvn, nin, kyc_status: 'submitted' })
+    .eq('user_id', user.id)
+
+  if (error) return { error: 'Failed to save KYC information' }
 
   revalidatePath('/rider/onboarding')
   revalidatePath('/rider/profile')

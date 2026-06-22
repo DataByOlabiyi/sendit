@@ -52,11 +52,18 @@ export async function PATCH(request: Request) {
       const prevTime = new Date(rider.updated_at as string).getTime()
       const elapsedHours = (now - prevTime) / 3_600_000
 
-      if (elapsedHours > 0 && elapsedHours < 1) {
+      if (elapsedHours > 0) {
         const distKm = haversineDistance(prevLat, prevLng, lat, lng)
-        const speedKmh = distKm / elapsedHours
-        if (speedKmh > MAX_REALISTIC_SPEED_KMH) {
-          console.warn(`Velocity check failed for user ${user.id}: ${Math.round(speedKmh)} km/h — skipping update`)
+        // For gaps < 1 hour use the instantaneous speed check.
+        // For gaps >= 1 hour apply a proportional max-distance check so that
+        // a rider cannot "teleport" across cities by spacing updates far apart.
+        const maxAllowedKm = MAX_REALISTIC_SPEED_KMH * elapsedHours
+        if (distKm > maxAllowedKm) {
+          console.warn(
+            `Velocity check failed for user ${user.id}: ` +
+            `${distKm.toFixed(1)} km in ${(elapsedHours * 60).toFixed(1)} min ` +
+            `(max ${maxAllowedKm.toFixed(1)} km) — skipping update`,
+          )
           return NextResponse.json({ error: 'Location update rejected: implausible speed' }, { status: 422 })
         }
       }

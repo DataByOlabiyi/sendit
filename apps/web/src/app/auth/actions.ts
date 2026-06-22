@@ -42,14 +42,16 @@ export async function loginAction(data: LoginInput) {
   redirect('/dashboard')
 }
 
-export async function registerAction(data: RegisterInput) {
+export async function registerAction(data: RegisterInput, referralCode?: string) {
   const supabase = await createClient()
 
   const { data: authData, error } = await supabase.auth.signUp({
     email: data.email,
     password: data.password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+      emailRedirectTo: process.env.NEXT_PUBLIC_APP_URL
+        ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+        : undefined,
       data: {
         full_name: data.full_name,
         phone: data.phone,
@@ -66,6 +68,28 @@ export async function registerAction(data: RegisterInput) {
 
   if (!authData.user) {
     return { error: 'Registration failed. Please try again.' }
+  }
+
+  // Supabase returns a non-null stub user (with empty identities) when the email
+  // already exists and email confirmation is enabled — no new email is sent.
+  if ((authData.user.identities?.length ?? 0) === 0) {
+    return { error: 'An account with this email already exists. Please sign in instead.' }
+  }
+
+  // Apply referral code — fail silently so a bad/expired code never blocks signup.
+  if (referralCode && referralCode.trim().length > 0) {
+    const { data: referrer } = await supabase
+      .from('users')
+      .select('id')
+      .eq('referral_code', referralCode.trim().toUpperCase())
+      .maybeSingle()
+
+    if (referrer && referrer.id !== authData.user.id) {
+      await supabase
+        .from('users')
+        .update({ referred_by: referrer.id })
+        .eq('id', authData.user.id)
+    }
   }
 
   return { success: true }
@@ -85,7 +109,9 @@ export async function forgotPasswordAction(email: string) {
   // Returning different responses for registered vs unregistered emails
   // allows enumeration of valid accounts.
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/reset-password`,
+    redirectTo: process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?next=/auth/reset-password`
+      : undefined,
   })
 
   // Always return success to prevent email enumeration

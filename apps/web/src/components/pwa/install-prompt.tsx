@@ -60,6 +60,7 @@ export function InstallPrompt() {
         </div>
         <button
           onClick={handleDismiss}
+          aria-label="Dismiss install prompt"
           className="text-gray-400 hover:text-gray-600 transition shrink-0"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>

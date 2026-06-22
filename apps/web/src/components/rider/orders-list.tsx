@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
-import { StatusBadge } from '@sendit/ui'
+import { StatusBadge, EmptyState } from '@sendit/ui'
+import { Bike } from 'lucide-react'
 import type { Order, OrderStatus } from '@sendit/types'
 
 const filters: { label: string; value: OrderStatus | 'all' }[] = [
@@ -45,10 +46,11 @@ export function RiderOrdersList({ orders }: RiderOrdersListProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
-          <p className="text-sm font-medium text-gray-900">No deliveries found</p>
-          <p className="text-xs text-gray-500 mt-1">Complete deliveries will appear here</p>
-        </div>
+        <EmptyState
+          icon={Bike}
+          title="No deliveries found"
+          description="Complete deliveries will appear here"
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((order) => (

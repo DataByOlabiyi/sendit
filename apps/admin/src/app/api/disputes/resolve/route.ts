@@ -58,29 +58,47 @@ export async function POST(request: Request) {
       if (action === 'resolve' && typeof refundAmount === 'number' && refundAmount > 0) {
         const { data: payment } = await supabase
           .from('payments')
-          .select('paystack_reference')
+          .select('id, paystack_reference, amount, refund_initiated_at')
           .eq('order_id', dispute.order_id)
           .eq('status', 'paid')
           .maybeSingle()
 
         if (payment?.paystack_reference) {
-          const refundRes = await fetch('https://api.paystack.co/refund', {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              transaction: payment.paystack_reference,
-              // Amounts in DB are NGN; Paystack refund API expects kobo
-              amount: Math.round(refundAmount * 100),
-              merchant_note: `Dispute resolution: ${resolution ?? disputeId}`,
-            }),
-          })
-          if (!refundRes.ok) {
-            const body = await refundRes.text().catch(() => '')
-            console.error('Dispute refund failed:', refundRes.status, body)
-            // Non-fatal: dispute is already marked resolved; ops team can retry manually
+          // Validate the requested refund does not exceed the original payment.
+          if (refundAmount > payment.amount) {
+            return NextResponse.json(
+              { error: `Refund amount (${refundAmount}) exceeds original payment (${payment.amount})` },
+              { status: 400 },
+            )
+          }
+
+          // Atomic lock: prevents a second admin click or network retry from
+          // sending a duplicate refund to Paystack.
+          const { data: lockGranted } = await supabase
+            .rpc('lock_payment_for_refund', { p_payment_id: payment.id })
+
+          if (!lockGranted) {
+            // Another request already holds the lock — don't double-refund.
+            console.warn(`Refund lock already held for payment ${payment.id} (dispute ${disputeId})`)
+          } else {
+            const refundRes = await fetch('https://api.paystack.co/refund', {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                transaction: payment.paystack_reference,
+                // DB amounts are NGN; Paystack refund API expects kobo
+                amount: Math.round(refundAmount * 100),
+                merchant_note: `Dispute resolution: ${resolution ?? disputeId}`,
+              }),
+            })
+            if (!refundRes.ok) {
+              const body = await refundRes.text().catch(() => '')
+              console.error('Dispute refund failed:', refundRes.status, body)
+              // Non-fatal: dispute is already marked resolved; ops team can retry manually
+            }
           }
         }
       }

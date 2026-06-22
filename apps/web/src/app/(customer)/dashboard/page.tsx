@@ -8,7 +8,7 @@ export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [{ data: profile }, { data: orders }] = await Promise.all([
+  const [{ data: profile }, { data: orders }, { data: wallet }] = await Promise.all([
     supabase.from('users').select('*').eq('id', user!.id).single(),
     supabase
       .from('orders')
@@ -16,6 +16,7 @@ export default async function DashboardPage() {
       .eq('customer_id', user!.id)
       .order('created_at', { ascending: false })
       .limit(10),
+    supabase.from('customer_wallets').select('balance').eq('user_id', user!.id).maybeSingle(),
   ])
 
   const activeOrders = orders?.filter(o =>
@@ -30,6 +31,7 @@ export default async function DashboardPage() {
       recentOrders={orders ?? []}
       activeOrders={activeOrders}
       totalDeliveries={completedOrders.length}
+      walletBalance={wallet?.balance ?? 0}
     />
   )
 }

@@ -97,7 +97,7 @@ export function ChatDrawer({
               <p className="text-xs text-gray-400">Chat about your delivery</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition touch-manipulation">
+          <button onClick={onClose} aria-label="Close chat" className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition touch-manipulation">
             <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -150,6 +150,7 @@ export function ChatDrawer({
           <button
             onClick={handleSend}
             disabled={!input.trim() || isSending}
+            aria-label="Send message"
             className="w-10 h-10 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 rounded-xl flex items-center justify-center transition shrink-0 touch-manipulation"
           >
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
