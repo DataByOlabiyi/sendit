@@ -47,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={inter.variable}>
+      <body className={`${inter.variable} font-sans`}>
         <Providers>
           <RealtimeStatusBanner />
           {children}

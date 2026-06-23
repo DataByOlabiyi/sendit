@@ -160,7 +160,7 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
   }
 
   const memberSince = new Date(profile.created_at).toLocaleDateString('en-NG', {
-    month: 'short',
+    month: 'long',
     year: 'numeric',
   })
 
@@ -173,13 +173,12 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
     .toUpperCase()
 
   return (
-    <div className="lg:grid lg:grid-cols-[260px_1fr] lg:gap-6 lg:items-start">
+    <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-6 lg:items-start">
 
-      {/* ── Left: Avatar + Stats ── */}
-      <div className="space-y-4 mb-4 lg:mb-0">
-        {/* Avatar */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
+      {/* ── Left: Identity + Stats ── */}
+      <div className="mb-4 lg:mb-0">
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
+          <div aria-hidden="true" className="w-20 h-20 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-3">
             <span className="text-2xl font-bold text-orange-500">{initials}</span>
           </div>
           <p className="font-semibold text-gray-900">{profile.full_name}</p>
@@ -187,15 +186,15 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 mt-2 capitalize">
             {profile.role}
           </span>
-        </div>
 
-        {/* Stats */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
+          <hr className="my-4 border-gray-100" />
+
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 text-left">Account Stats</p>
+          <div role="list" className="space-y-4 text-left">
+            <div role="listitem" className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <div className="w-9 h-9 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                   </svg>
                 </div>
@@ -203,10 +202,10 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
               </div>
               <span className="text-sm font-bold text-gray-900">{orderCount}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div role="listitem" className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -215,10 +214,10 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
               </div>
               <span className="text-sm font-bold text-gray-900">{addressCount}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div role="listitem" className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
                 </div>
@@ -232,31 +231,31 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
 
       {/* ── Right: Forms ── */}
       <div className="space-y-4">
+
         {/* Personal Information */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Personal Information</h2>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900">Personal Information</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-5">Update your name and phone number</p>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
               <input
                 {...register('full_name')}
                 type="text"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
               />
               {errors.full_name && <p className="mt-1.5 text-xs text-red-500">{errors.full_name.message}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone Number</label>
               <input
                 {...register('phone')}
                 type="tel"
                 placeholder="08012345678"
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
               />
               {errors.phone && <p className="mt-1.5 text-xs text-red-500">{errors.phone.message}</p>}
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Email Address</label>
               <input
@@ -267,42 +266,27 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
               />
               <p className="mt-1.5 text-xs text-gray-400">Email cannot be changed</p>
             </div>
-
             <button
               type="submit"
               disabled={isLoading || !isDirty}
-              className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition text-sm"
+              className="w-full py-3 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors"
             >
               {isLoading ? 'Saving…' : 'Save Changes'}
             </button>
             {!isDirty && (
-              <p className="text-xs text-center text-gray-400">No changes to save</p>
+              <p className="text-sm text-center text-gray-400">No changes to save</p>
             )}
           </form>
         </div>
 
-        {/* Security */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1">Security</h2>
-          <p className="text-xs text-gray-400 mb-4">A password reset link will be sent to your email</p>
-          <button
-            onClick={handlePasswordReset}
-            disabled={isSendingReset}
-            type="button"
-            className="w-full py-3 border border-gray-200 hover:border-gray-300 disabled:opacity-60 text-gray-700 font-semibold rounded-xl transition text-sm"
-          >
-            {isSendingReset ? 'Sending…' : 'Send Password Reset Email'}
-          </button>
-        </div>
-
         {/* Wallet */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-1">SendIt Wallet</h2>
-          <p className="text-xs text-gray-400 mb-4">Add funds to pay for orders instantly</p>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900">SendIt Wallet</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-5">Add funds to pay for orders instantly</p>
 
           <div className="flex items-center gap-4 p-4 bg-orange-50 rounded-xl mb-4">
             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
               </svg>
             </div>
@@ -313,9 +297,19 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
           </div>
 
           {walletTotalCredited > 0 && (
-            <div className="flex gap-4 mb-4 text-xs text-gray-500">
-              <span>Total credited: <strong className="text-gray-700">{formatCurrency(walletTotalCredited)}</strong></span>
-              <span>Total spent: <strong className="text-gray-700">{formatCurrency(walletTotalSpent)}</strong></span>
+            <div className="grid grid-cols-3 gap-2 mb-4 p-3 bg-gray-50 rounded-xl">
+              <div className="text-center">
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(currentBalance)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Balance</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(walletTotalCredited)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Total In</p>
+              </div>
+              <div className="text-center">
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(walletTotalSpent)}</p>
+                <p className="text-xs text-gray-400 mt-0.5">Total Out</p>
+              </div>
             </div>
           )}
 
@@ -332,18 +326,18 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
               type="button"
               onClick={handleTopup}
               disabled={isTopupLoading || !topupAmount}
-              className="px-5 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-semibold rounded-xl transition text-sm shrink-0"
+              className="px-5 py-3 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors shrink-0"
             >
               {isTopupLoading ? 'Loading…' : 'Add Funds'}
             </button>
           </div>
         </div>
 
-        {/* Referral */}
+        {/* Refer & Earn */}
         {profile.referral_code && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-sm font-semibold text-gray-900 mb-1">Refer & Earn</h2>
-            <p className="text-xs text-gray-400 mb-4">Share your code — you both earn ₦500 credit after their first delivery</p>
+          <div className="bg-white rounded-2xl border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900">Refer & Earn</h2>
+            <p className="text-sm text-gray-500 mt-1 mb-5">Share your code — you both earn ₦500 credit after their first delivery</p>
 
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-200">
@@ -352,7 +346,7 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
               <button
                 type="button"
                 onClick={handleCopyCode}
-                className="px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold rounded-xl transition shrink-0"
+                className="px-4 py-3 bg-orange-500 hover:bg-orange-600 active:bg-orange-700 text-white text-sm font-semibold rounded-xl transition-colors shrink-0"
               >
                 {codeCopied ? 'Copied!' : 'Copy'}
               </button>
@@ -361,16 +355,16 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
             <button
               type="button"
               onClick={handleCopyLink}
-              className="w-full flex items-center justify-center gap-2 py-2.5 border border-orange-200 text-orange-600 text-sm font-medium rounded-xl hover:bg-orange-50 transition"
+              className="w-full flex items-center justify-center gap-2 py-2.5 border border-orange-200 text-orange-600 text-sm font-medium rounded-xl hover:bg-orange-50 active:bg-orange-100 transition-colors"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
               Share referral link
             </button>
 
             {referralRewards.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-100 space-y-1">
+              <div className="mt-4 pt-4 border-t border-gray-100 space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">Pending rewards</span>
                   <span className="font-semibold text-yellow-600">{pendingRewards}</span>
@@ -384,28 +378,42 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
           </div>
         )}
 
+        {/* Security */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900">Security</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-5">A password reset link will be sent to your email</p>
+          <button
+            onClick={handlePasswordReset}
+            disabled={isSendingReset}
+            type="button"
+            className="w-full py-3 border border-gray-200 hover:border-gray-300 active:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+          >
+            {isSendingReset ? 'Sending…' : 'Send Password Reset Email'}
+          </button>
+        </div>
+
         {/* Danger Zone */}
-        <div className="bg-white rounded-2xl border border-red-100 p-5">
-          <h2 className="text-sm font-semibold text-red-600 mb-1">Danger Zone</h2>
-          <p className="text-xs text-gray-400 mb-4">
+        <div className="bg-white rounded-2xl border border-red-100 p-6">
+          <h2 className="text-base font-semibold text-red-600">Danger Zone</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-5">
             Deactivating your account will prevent access. Contact support to reactivate.
           </p>
           {!confirmDelete ? (
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="w-full py-3 border border-red-200 hover:border-red-400 text-red-600 font-semibold rounded-xl transition text-sm"
+              className="w-full py-3 border border-red-200 hover:border-red-400 active:bg-red-50 text-red-600 text-sm font-semibold rounded-xl transition-colors"
             >
               Deactivate Account
             </button>
           ) : (
             <div className="space-y-3">
-              <p className="text-xs font-medium text-red-500">Are you sure? You will be signed out immediately.</p>
+              <p className="text-sm font-medium text-red-500">Are you sure? You will be signed out immediately.</p>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setConfirmDelete(false)}
-                  className="flex-1 py-3 border border-gray-200 text-gray-600 font-semibold rounded-xl transition text-sm"
+                  className="flex-1 py-3 border border-gray-200 text-gray-600 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
@@ -413,7 +421,7 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
                   type="button"
                   onClick={handleDeleteAccount}
                   disabled={isDeleting}
-                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 disabled:opacity-60 text-white font-semibold rounded-xl transition text-sm"
+                  className="flex-1 py-3 bg-red-500 hover:bg-red-600 active:bg-red-700 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors"
                 >
                   {isDeleting ? 'Deactivating…' : 'Yes, Deactivate'}
                 </button>
@@ -421,6 +429,7 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
             </div>
           )}
         </div>
+
       </div>
     </div>
   )
