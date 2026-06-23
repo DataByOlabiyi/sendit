@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatCurrency, formatDate } from '@sendit/utils'
 
 interface Rider {
   id: string
@@ -32,18 +33,12 @@ const statusStyles: Record<string, string> = {
   failed: 'bg-red-100 text-red-700',
 }
 
-function formatCurrency(amount: number) {
-  return `₦${(amount / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}`
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
 export function PayoutsTable({ payouts: initialPayouts }: PayoutsTableProps) {
   const [payouts, setPayouts] = useState(initialPayouts)
   const [processing, setProcessing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [failModal, setFailModal] = useState<PayoutRow | null>(null)
+  const [failReason, setFailReason] = useState('')
 
   function getRider(row: PayoutRow): Rider | null {
     if (!row.riders) return null
@@ -74,27 +69,29 @@ export function PayoutsTable({ payouts: initialPayouts }: PayoutsTableProps) {
     }
   }
 
-  async function handleMarkFailed(payout: PayoutRow) {
-    const reason = prompt('Enter failure reason:')
-    if (!reason) return
+  async function submitMarkFailed() {
+    if (!failModal || !failReason.trim()) return
+    const payout = failModal
+    setFailModal(null)
     setProcessing(payout.id)
     try {
       const res = await fetch('/api/payouts/fail', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payoutId: payout.id, reason }),
+        body: JSON.stringify({ payoutId: payout.id, reason: failReason.trim() }),
       })
       const data = await res.json()
       if (!res.ok) { setError(data.error ?? 'Failed'); return }
       setPayouts((prev) =>
         prev.map((p) =>
-          p.id === payout.id ? { ...p, status: 'failed', failure_reason: reason } : p,
+          p.id === payout.id ? { ...p, status: 'failed', failure_reason: failReason.trim() } : p,
         ),
       )
     } catch {
       setError('Network error — try again')
     } finally {
       setProcessing(null)
+      setFailReason('')
     }
   }
 
@@ -137,7 +134,7 @@ export function PayoutsTable({ payouts: initialPayouts }: PayoutsTableProps) {
                         <p className="text-xs font-mono text-gray-400">{rider?.bank_account_number}</p>
                       </td>
                       <td className="px-5 py-4 text-sm font-semibold text-gray-900">
-                        {formatCurrency(payout.amount)}
+                        {formatCurrency(payout.amount / 100)}
                       </td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[payout.status] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -161,7 +158,7 @@ export function PayoutsTable({ payouts: initialPayouts }: PayoutsTableProps) {
                               {isActive ? '...' : 'Disburse'}
                             </button>
                             <button
-                              onClick={() => handleMarkFailed(payout)}
+                              onClick={() => { setFailReason(''); setFailModal(payout) }}
                               disabled={isActive}
                               className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
                             >
@@ -180,6 +177,41 @@ export function PayoutsTable({ payouts: initialPayouts }: PayoutsTableProps) {
           </table>
         </div>
       </div>
+
+      {/* Mark failed modal */}
+      {failModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Mark Payout as Failed</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              {getRider(failModal)?.users?.full_name} · {formatCurrency(failModal.amount / 100)}
+            </p>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">Failure reason</label>
+            <textarea
+              value={failReason}
+              onChange={(e) => setFailReason(e.target.value)}
+              rows={3}
+              placeholder="e.g. Invalid bank account number"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400 mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setFailModal(null)}
+                className="flex-1 py-2.5 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 transition text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitMarkFailed}
+                disabled={!failReason.trim()}
+                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl transition text-sm disabled:opacity-50"
+              >
+                Mark Failed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

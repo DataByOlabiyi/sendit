@@ -119,7 +119,7 @@ export default async function OpsCenterPage() {
   ]
 
   return (
-    <div className="px-6 py-8 max-w-7xl">
+    <div className="px-6 py-8 max-w-7xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Operations Center</h1>
         <p className="text-sm text-gray-500 mt-1">Live platform health — refreshes every 60 seconds</p>

@@ -129,7 +129,7 @@ export function KycTable({ riders, readOnly = false }: KycTableProps) {
 
       {/* Reject reason modal */}
       {actionTarget?.action === 'reject' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
             <h3 className="text-base font-semibold text-gray-900 mb-1">Reject KYC submission</h3>
             <p className="text-sm text-gray-500 mb-4">Provide a reason — it will be shown to the rider.</p>

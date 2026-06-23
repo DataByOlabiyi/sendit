@@ -44,7 +44,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
         </a>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">{ticket.subject}</h1>
+            <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>
             <p className="text-sm text-gray-500 mt-1">
               {customer?.full_name} · {customer?.email} · Opened {formatDate(ticket.created_at)}
             </p>

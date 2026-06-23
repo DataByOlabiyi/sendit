@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { formatCurrency } from '@sendit/utils'
 
 interface City {
   id: string
@@ -24,10 +25,7 @@ interface Zone {
   created_at: string
 }
 
-function fmt(kobo: number | null) {
-  if (kobo === null || kobo === undefined) return '—'
-  return `₦${(kobo / 100).toLocaleString('en-NG')}`
-}
+const fmt = (kobo: number | null) => kobo != null ? formatCurrency(kobo / 100) : '—'
 
 async function apiPost(body: Record<string, unknown>) {
   const res = await fetch('/api/zones', {

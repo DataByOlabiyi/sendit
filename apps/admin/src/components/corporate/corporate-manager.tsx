@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { formatCurrency } from '@sendit/utils'
 
 interface Org {
   id: string
@@ -25,9 +26,7 @@ interface Member {
   users: { full_name: string; email: string; phone: string | null } | null
 }
 
-function fmt(kobo: number) {
-  return `₦${(kobo / 100).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`
-}
+const fmt = (kobo: number) => formatCurrency(kobo / 100)
 
 async function apiPost(body: Record<string, unknown>) {
   const res = await fetch('/api/corporate', {

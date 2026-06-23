@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatDate, formatCurrency } from '@sendit/utils'
 import { Pagination } from '@/components/ui/pagination'
 
 interface DisputeRow {
@@ -38,10 +39,6 @@ const typeLabels: Record<string, string> = {
   rider_conduct: 'Rider Conduct',
   overcharge: 'Overcharge',
   other: 'Other',
-}
-
-function formatDate(d: string) {
-  return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function DisputesTable({ disputes: initialDisputes }: { disputes: DisputeRow[] }) {
@@ -159,7 +156,7 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
                         <p className="text-xs font-mono text-gray-600">{order?.reference ?? '—'}</p>
                         {order?.total_fee && (
                           <p className="text-xs text-gray-400">
-                            ₦{(order.total_fee / 100).toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+                            {formatCurrency(order.total_fee / 100)}
                           </p>
                         )}
                       </td>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { formatDate } from '@sendit/utils'
 
 interface ApiKey {
   id: string
@@ -23,10 +24,7 @@ interface Org {
 
 const ALL_SCOPES = ['orders:create', 'orders:read', 'orders:cancel', 'tracking:read', 'webhooks:manage']
 
-function fmtDate(d: string | null) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const fmtDate = (d: string | null) => d ? formatDate(d) : '—'
 
 export function ApiKeysManager({ keys: initial, orgs }: { keys: ApiKey[]; orgs: Org[] }) {
   const [keys, setKeys] = useState(initial)

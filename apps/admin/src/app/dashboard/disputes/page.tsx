@@ -25,7 +25,7 @@ export default async function DisputesPage() {
   }
 
   return (
-    <div className="px-4 py-6 lg:px-8 max-w-7xl mx-auto">
+    <div className="px-6 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Disputes</h1>
         <p className="text-sm text-gray-500 mt-1">Review and resolve customer disputes</p>

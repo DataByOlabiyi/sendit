@@ -25,7 +25,7 @@ export default async function KycPage() {
         <p className="text-sm text-gray-500 mt-1">Verify rider identity documents (BVN / NIN)</p>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Pending Review</p>
           <p className="text-3xl font-bold text-orange-500 mt-1">{pending.length}</p>

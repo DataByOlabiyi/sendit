@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatCurrency, formatDate } from '@sendit/utils'
 
 interface Claim {
   id: string
@@ -27,14 +28,7 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
 }
 
-function fmt(kobo: number | null) {
-  if (!kobo) return '—'
-  return `₦${(kobo / 100).toLocaleString('en-NG', { minimumFractionDigits: 0 })}`
-}
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+const fmt = (kobo: number | null) => kobo != null ? formatCurrency(kobo / 100) : '—'
 
 export function ClaimsTable({ claims: initial }: ClaimsTableProps) {
   const [claims, setClaims] = useState(initial)
@@ -78,7 +72,7 @@ export function ClaimsTable({ claims: initial }: ClaimsTableProps) {
             key={s}
             onClick={() => setStatusFilter(s)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
-              statusFilter === s ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+              statusFilter === s ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
             {s === 'all' ? 'All' : s.replace('_', ' ')}
@@ -125,7 +119,7 @@ export function ClaimsTable({ claims: initial }: ClaimsTableProps) {
                           {claim.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-xs text-gray-500">{fmtDate(claim.created_at)}</td>
+                      <td className="px-5 py-4 text-xs text-gray-500">{formatDate(claim.created_at)}</td>
                       <td className="px-5 py-4">
                         {['pending', 'under_review', 'approved'].includes(claim.status) && (
                           <button

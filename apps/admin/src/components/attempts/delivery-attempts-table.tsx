@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { formatDate, formatTime } from '@sendit/utils'
 
 interface Attempt {
   id: string
@@ -30,12 +31,6 @@ const outcomeConfig: Record<string, { label: string; color: string }> = {
   no_answer: { label: 'No Answer', color: 'bg-orange-100 text-orange-700' },
   wrong_address: { label: 'Wrong Address', color: 'bg-yellow-100 text-yellow-700' },
   refused: { label: 'Refused', color: 'bg-pink-100 text-pink-700' },
-}
-
-function fmtDate(d: string) {
-  return new Date(d).toLocaleString('en-NG', {
-    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  })
 }
 
 export function DeliveryAttemptsTable({ attempts: initial }: { attempts: Attempt[] }) {
@@ -125,7 +120,7 @@ export function DeliveryAttemptsTable({ attempts: initial }: { attempts: Attempt
                             {cfg?.label ?? attempt.outcome}
                           </span>
                         </td>
-                        <td className="px-5 py-4 text-xs text-gray-500">{fmtDate(attempt.attempted_at)}</td>
+                        <td className="px-5 py-4 text-xs text-gray-500">{formatDate(attempt.attempted_at)} {formatTime(attempt.attempted_at)}</td>
                         <td className="px-5 py-4">
                           {(attempt.notes || attempt.photo_url) && (
                             <button
