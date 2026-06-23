@@ -130,7 +130,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_read
 
 -- Dispatch history per order
 CREATE INDEX IF NOT EXISTS idx_dispatch_attempts_order
-  ON dispatch_attempts (order_id, created_at);
+  ON delivery_attempts (order_id, created_at);
 
 -- Promo use-count per user
 CREATE INDEX IF NOT EXISTS idx_promo_redemptions_user_promo

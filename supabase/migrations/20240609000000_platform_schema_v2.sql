@@ -214,7 +214,10 @@ CREATE TRIGGER on_order_delivered_credit_wallet
 -- ---------------------------------------------------------------------------
 -- 6. rider_payouts — payout batch records (admin-initiated)
 -- ---------------------------------------------------------------------------
-CREATE TYPE IF NOT EXISTS public.payout_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+DO $$ BEGIN
+  CREATE TYPE public.payout_status AS ENUM ('pending', 'processing', 'completed', 'failed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.rider_payouts (
   id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -134,7 +134,15 @@ export function DeliveryMap({
     }
 
     if (hasMarkers) {
-      mapInstance.current.fitBounds(bounds, 60)
+      const sw = bounds.getSouthWest()
+      const ne = bounds.getNorthEast()
+      const isSinglePoint = sw.lat() === ne.lat() && sw.lng() === ne.lng()
+      if (isSinglePoint) {
+        mapInstance.current.setCenter(sw)
+        mapInstance.current.setZoom(16)
+      } else {
+        mapInstance.current.fitBounds(bounds, 60)
+      }
     }
 
     // Draw route
