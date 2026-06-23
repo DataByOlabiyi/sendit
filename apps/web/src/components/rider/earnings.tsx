@@ -319,7 +319,7 @@ export function RiderEarnings({ payments, rider, wallet, recentPayouts }: RiderE
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Earnings</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatCurrency(totalEarnings)}</p>
+          <p className="text-xl font-bold text-gray-900 mt-1 truncate">{formatCurrency(totalEarnings)}</p>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Deliveries</p>

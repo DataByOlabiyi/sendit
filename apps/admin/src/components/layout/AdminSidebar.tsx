@@ -270,7 +270,7 @@ export function AdminSidebar() {
             aria-hidden="true"
           />
           {/* Panel */}
-          <div className="relative w-64 bg-white flex flex-col h-full shadow-xl">
+          <div className="relative w-64 max-w-[85vw] bg-white flex flex-col h-full shadow-xl">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
               <Logo />
               <button

@@ -165,7 +165,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
       {rider.kyc_status === 'submitted' && (
         <button
           onClick={() => { setKycRejectReason(''); setModal({ type: 'kyc', rider }) }}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition touch-manipulation"
+          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition touch-manipulation"
         >
           Review KYC
         </button>
@@ -173,7 +173,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
       {(rider.license_doc_url || rider.vehicle_doc_url) && (
         <button
           onClick={() => setModal({ type: 'docs', rider })}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition touch-manipulation"
+          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition touch-manipulation"
         >
           View Docs
         </button>
@@ -184,14 +184,14 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
           <button
             onClick={() => handleApprove(rider.id)}
             disabled={loadingId === rider.id}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition disabled:opacity-50 touch-manipulation"
+            className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition disabled:opacity-50 touch-manipulation"
           >
             Approve
           </button>
           <button
             onClick={() => openReasonModal('reject', rider.id)}
             disabled={loadingId === rider.id}
-            className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50 touch-manipulation"
+            className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50 touch-manipulation"
           >
             Reject
           </button>
@@ -201,7 +201,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
         <button
           onClick={() => openReasonModal('suspend', rider.id)}
           disabled={loadingId === rider.id}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50 touch-manipulation"
+          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition disabled:opacity-50 touch-manipulation"
         >
           Suspend
         </button>
@@ -210,7 +210,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
         <button
           onClick={() => handleApprove(rider.id)}
           disabled={loadingId === rider.id}
-          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition disabled:opacity-50 touch-manipulation"
+          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition disabled:opacity-50 touch-manipulation"
         >
           Reinstate
         </button>

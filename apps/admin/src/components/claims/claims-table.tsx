@@ -71,7 +71,7 @@ export function ClaimsTable({ claims: initial }: ClaimsTableProps) {
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition ${
+            className={`shrink-0 px-3 py-2.5 min-h-[44px] rounded-full text-xs font-medium transition flex items-center ${
               statusFilter === s ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
@@ -80,7 +80,72 @@ export function ClaimsTable({ claims: initial }: ClaimsTableProps) {
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Mobile card view */}
+      <div className="block lg:hidden space-y-3">
+        {filtered.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+            <p className="text-sm text-gray-400">No claims found</p>
+          </div>
+        ) : (
+          filtered.map((claim) => (
+            <div key={claim.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-start justify-between gap-3 mb-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{claim.users?.full_name ?? '—'}</p>
+                  <p className="text-xs text-gray-500 truncate">{claim.users?.email}</p>
+                </div>
+                <span className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusColors[claim.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                  {claim.status.replace('_', ' ')}
+                </span>
+              </div>
+              <div className="space-y-1.5 mb-3 text-xs">
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-400">Order</span>
+                  <span className="font-mono text-gray-600">{claim.orders?.reference ?? claim.orders?.id?.slice(0, 8).toUpperCase() ?? '—'}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-400">Claim Amount</span>
+                  <span className="font-semibold text-gray-900">{fmt(claim.claim_amount)}</span>
+                </div>
+                {claim.payout_amount && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400">Payout</span>
+                    <span className="font-semibold text-green-600">{fmt(claim.payout_amount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-gray-400">Filed</span>
+                  <span className="text-gray-500">{formatDate(claim.created_at)}</span>
+                </div>
+              </div>
+              {['pending', 'under_review', 'approved'].includes(claim.status) && (
+                <div className="pt-3 border-t border-gray-100">
+                  <button
+                    onClick={() => setExpanded(expanded === claim.id ? null : claim.id)}
+                    className="w-full py-2.5 text-sm font-medium rounded-xl bg-orange-50 text-orange-500 hover:bg-orange-100 transition"
+                  >
+                    {expanded === claim.id ? 'Close' : 'Review'}
+                  </button>
+                  {expanded === claim.id && (
+                    <div className="mt-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Customer Description</p>
+                      <p className="text-sm text-gray-600 mb-3">{claim.description}</p>
+                      <ClaimActionPanel
+                        claim={claim}
+                        isProcessing={processing === claim.id}
+                        onUpdate={updateClaim}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden lg:block bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>

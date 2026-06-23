@@ -34,13 +34,6 @@ export default async function AdminDashboardPage() {
   const weekRevenue = (weekPayments ?? []).reduce((sum, p) => sum + p.amount * PRICING.PLATFORM_COMMISSION, 0)
   const completionRate = totalOrders ? Math.round(((completedOrders ?? 0) / totalOrders) * 100) : 0
 
-  const stats = [
-    { label: 'Total Customers', value: totalUsers ?? 0, color: 'text-blue-500', bg: 'bg-blue-50' },
-    { label: 'Total Riders', value: totalRiders ?? 0, color: 'text-purple-500', bg: 'bg-purple-50' },
-    { label: 'Total Orders', value: totalOrders ?? 0, color: 'text-green-500', bg: 'bg-green-50' },
-    { label: 'Active Orders', value: activeOrders ?? 0, color: 'text-orange-500', bg: 'bg-orange-50' },
-  ]
-
   const alerts = [
     pendingPayouts && pendingPayouts > 0
       ? { label: `${pendingPayouts} pending payout${pendingPayouts !== 1 ? 's' : ''}`, href: '/dashboard/payouts', color: 'text-yellow-700 bg-yellow-50 border-yellow-200' }
@@ -73,16 +66,52 @@ export default async function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {stats.map((stat) => (
-          <div key={stat.label} className="bg-white rounded-2xl border border-gray-100 p-5">
-            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${stat.bg} mb-3`}>
-              <div className={`w-3 h-3 rounded-full ${stat.color.replace('text-', 'bg-')}`} />
-            </div>
-            <p className="text-3xl font-bold text-gray-900">{stat.value.toLocaleString()}</p>
-            <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-blue-50 mb-3">
+            <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" />
+            </svg>
           </div>
-        ))}
+          <p className="text-3xl font-bold text-gray-900">{(totalUsers ?? 0).toLocaleString()}</p>
+          <p className="text-sm text-gray-500 mt-1">Total Customers</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-purple-50 mb-3">
+            <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <circle cx="5.5" cy="17.5" r="2.5" />
+              <circle cx="18.5" cy="17.5" r="2.5" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 6h2l3 5.5M9 6l1 4h5l1-4M8 10l-2.5 7.5" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{(totalRiders ?? 0).toLocaleString()}</p>
+          <p className="text-sm text-gray-500 mt-1">Total Riders</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-green-50 mb-3">
+            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+              <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+              <line x1="12" y1="22.08" x2="12" y2="12" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{(totalOrders ?? 0).toLocaleString()}</p>
+          <p className="text-sm text-gray-500 mt-1">Total Orders</p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <div className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-orange-50 mb-3">
+            <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{(activeOrders ?? 0).toLocaleString()}</p>
+          <p className="text-sm text-gray-500 mt-1">Active Orders</p>
+        </div>
       </div>
 
       {/* Quick metrics row */}

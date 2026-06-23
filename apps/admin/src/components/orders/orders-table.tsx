@@ -68,7 +68,7 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
             <button
               key={s}
               onClick={() => handleStatusFilter(s)}
-              className={`shrink-0 px-3 py-2 rounded-xl text-xs font-medium capitalize transition touch-manipulation flex items-center gap-1.5 ${
+              className={`shrink-0 px-3 py-3 min-h-[44px] rounded-xl text-xs font-medium capitalize transition touch-manipulation flex items-center gap-1.5 ${
                 statusFilter === s
                   ? s === 'orphaned' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                   : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300'

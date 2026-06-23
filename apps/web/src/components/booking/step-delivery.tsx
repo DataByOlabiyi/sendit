@@ -187,7 +187,7 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
         )}
       </div>
 
-      <div className="sticky bottom-24 lg:static -mx-4 px-4 lg:mx-0 lg:px-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 lg:pt-0 lg:pb-0 lg:bg-none z-10">
+      <div className="sticky bottom-28 lg:static -mx-4 px-4 lg:mx-0 lg:px-0 bg-gradient-to-t from-gray-50 via-gray-50 to-transparent pt-4 pb-2 lg:pt-0 lg:pb-0 lg:bg-none z-10">
         <div className="flex gap-3">
           <button type="button" onClick={onBack} className="flex-1 py-3.5 border border-gray-200 bg-white text-gray-700 font-semibold rounded-2xl hover:bg-gray-50 transition">
             Back

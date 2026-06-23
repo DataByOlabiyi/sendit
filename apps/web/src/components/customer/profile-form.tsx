@@ -341,7 +341,7 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
 
             <div className="flex items-center gap-2 mb-3">
               <div className="flex-1 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl border border-gray-200">
-                <span className="font-mono text-base font-bold tracking-widest text-gray-900">{profile.referral_code}</span>
+                <span className="font-mono text-base font-bold tracking-widest text-gray-900 truncate">{profile.referral_code}</span>
               </div>
               <button
                 type="button"

@@ -111,7 +111,7 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
           <button
             key={s}
             onClick={() => handleFilter(s)}
-            className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition capitalize ${
+            className={`shrink-0 px-3 py-2.5 min-h-[44px] rounded-full text-xs font-medium transition capitalize flex items-center ${
               statusFilter === s ? 'bg-orange-500 text-white' : 'bg-white border border-gray-200 text-gray-600'
             }`}
           >
@@ -124,7 +124,86 @@ export function DisputesTable({ disputes: initialDisputes }: { disputes: Dispute
         <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{error}</div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      {/* Mobile card view */}
+      <div className="block lg:hidden space-y-3">
+        {paginated.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+            <p className="text-sm text-gray-400">No disputes</p>
+          </div>
+        ) : (
+          paginated.map((dispute) => {
+            const user = getUser(dispute)
+            const order = getOrder(dispute)
+            return (
+              <div key={dispute.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 truncate">{user?.full_name ?? '—'}</p>
+                    <p className="text-xs text-gray-500 truncate">{user?.email}</p>
+                  </div>
+                  <span className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[dispute.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                    {dispute.status.replace('_', ' ')}
+                  </span>
+                </div>
+                <div className="space-y-1.5 mb-3 text-xs">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400">Type</span>
+                    <span className="font-medium text-gray-700">{typeLabels[dispute.type] ?? dispute.type}</span>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400">Order</span>
+                    <span className="font-mono text-gray-600">{order?.reference ?? '—'}</span>
+                  </div>
+                  {order?.total_fee && (
+                    <div className="flex justify-between gap-2">
+                      <span className="text-gray-400">Order value</span>
+                      <span className="font-medium text-gray-700">{formatCurrency(order.total_fee / 100)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between gap-2">
+                    <span className="text-gray-400">Filed</span>
+                    <span className="text-gray-500">{formatDate(dispute.created_at)}</span>
+                  </div>
+                </div>
+                {['open', 'under_review'].includes(dispute.status) && (
+                  <div className="flex flex-col gap-2 pt-3 border-t border-gray-100">
+                    {dispute.status === 'open' && (
+                      <button
+                        onClick={() => setResolveModal({ disputeId: dispute.id, resolution: '', refundAmount: '', action: 'review' })}
+                        className="w-full py-2.5 text-sm font-medium rounded-xl bg-blue-50 text-blue-600 hover:bg-blue-100 transition"
+                      >
+                        Mark Under Review
+                      </button>
+                    )}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setResolveModal({ disputeId: dispute.id, resolution: '', refundAmount: '', action: 'resolve' })}
+                        className="flex-1 py-2.5 text-sm font-medium rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition"
+                      >
+                        Resolve
+                      </button>
+                      <button
+                        onClick={() => setResolveModal({ disputeId: dispute.id, resolution: '', refundAmount: '', action: 'reject' })}
+                        className="flex-1 py-2.5 text-sm font-medium rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {['resolved', 'rejected'].includes(dispute.status) && dispute.resolution && (
+                  <div className="mt-2 pt-2 border-t border-gray-100">
+                    <p className="text-xs text-gray-400">{dispute.resolution}</p>
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      {/* Desktop table view */}
+      <div className="hidden lg:block bg-white rounded-2xl border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
