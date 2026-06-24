@@ -58,8 +58,15 @@ export async function createRiderProfileAction(data: unknown) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid rider profile data' }
   }
 
+  // Use admin client for riders writes: the on_rider_created trigger inserts
+  // into rider_wallet which has RLS but no INSERT policy, so the trigger fails
+  // when run as the anon/user role. Admin client (service_role) bypasses RLS
+  // for this operation. Auth is already validated above; user_id is pinned to
+  // the authenticated user's id so no privilege escalation is possible.
+  const admin = createAdminClient()
+
   // Check if rider already exists (handles resubmission by rejected riders)
-  const { data: existing } = await supabase
+  const { data: existing } = await admin
     .from('riders')
     .select('id, status')
     .eq('user_id', user.id)
@@ -68,7 +75,7 @@ export async function createRiderProfileAction(data: unknown) {
   if (existing) {
     if (existing.status !== 'rejected') return { error: 'Rider profile already exists' }
     // Resubmission: reset status to pending and clear rejection reason
-    const { error } = await supabase
+    const { error } = await admin
       .from('riders')
       .update({
         vehicle_type: parsed.data.vehicle_type,
@@ -83,7 +90,7 @@ export async function createRiderProfileAction(data: unknown) {
     return { success: true }
   }
 
-  const { error } = await supabase.from('riders').insert({
+  const { error } = await admin.from('riders').insert({
     user_id: user.id,
     vehicle_type: parsed.data.vehicle_type,
     vehicle_plate: parsed.data.vehicle_plate,
