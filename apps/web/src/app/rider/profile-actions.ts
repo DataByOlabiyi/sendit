@@ -102,7 +102,23 @@ export async function createRiderProfileAction(data: unknown) {
 
   if (error) {
     if (error.code === '23505') return { error: 'Rider profile already exists' }
-    return { error: 'Failed to create rider profile' }
+    return { error: `DB error ${error.code}: ${error.message}` }
+  }
+
+  // Trigger create_rider_wallet fires after insert but may fail due to RLS.
+  // Explicitly insert wallet row with admin client as a safety net.
+  const { data: rider } = await admin
+    .from('riders')
+    .select('id')
+    .eq('user_id', user.id)
+    .single()
+
+  if (rider) {
+    await admin
+      .from('rider_wallet')
+      .insert({ rider_id: rider.id })
+      .select()
+      .maybeSingle() // ignore conflict — trigger may have already created it
   }
 
   return { success: true }
