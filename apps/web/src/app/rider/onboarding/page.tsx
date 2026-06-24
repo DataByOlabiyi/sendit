@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { RiderOnboardingForm } from '@/components/rider/onboarding-form'
 
 export const metadata: Metadata = { title: 'Rider Onboarding' }
@@ -28,17 +29,22 @@ export default async function RiderOnboardingPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: rider } = user
-    ? await supabase
-        .from('riders')
-        .select('status, rejection_reason, vehicle_type, vehicle_model, vehicle_plate, license_number, created_at')
-        .eq('user_id', user.id)
-        .maybeSingle()
-    : { data: null }
+  // Use admin client for riders SELECT — the regular server client's JWT is not
+  // always forwarded to PostgREST, causing auth.uid() to return NULL in RLS.
+  // We enforce the same per-user scope via eq('user_id', user.id).
+  const admin = user ? createAdminClient() : null
 
-  const { data: profile } = user
-    ? await supabase.from('users').select('full_name').eq('id', user.id).maybeSingle()
-    : { data: null }
+  const [{ data: rider }, { data: profile }] = await Promise.all([
+    admin
+      ? admin.from('riders')
+          .select('status, rejection_reason, vehicle_type, vehicle_model, vehicle_plate, license_number, created_at')
+          .eq('user_id', user!.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    user
+      ? supabase.from('users').select('full_name').eq('id', user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Rider'
   const isPending = rider?.status === 'pending'

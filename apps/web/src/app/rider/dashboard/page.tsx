@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { RiderDashboard } from '@/components/rider/dashboard'
 import { redirect } from 'next/navigation'
 import { haversineDistance } from '@sendit/utils'
@@ -13,7 +14,10 @@ export default async function RiderDashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: rider } = await supabase
+  // Use admin client — regular server client JWT is not always forwarded to
+  // PostgREST, causing auth.uid() → NULL and RLS to silently return 0 rows.
+  const admin = createAdminClient()
+  const { data: rider } = await admin
     .from('riders')
     .select('*')
     .eq('user_id', user!.id)
