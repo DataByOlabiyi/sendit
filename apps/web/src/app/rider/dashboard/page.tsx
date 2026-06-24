@@ -17,9 +17,11 @@ export default async function RiderDashboardPage() {
     .from('riders')
     .select('*')
     .eq('user_id', user!.id)
-    .single()
+    .maybeSingle()
 
-  if (!rider) redirect('/rider/onboarding')
+  if (!rider || rider.status === 'pending' || rider.status === 'rejected') {
+    redirect('/rider/onboarding')
+  }
 
   const [{ data: allPendingOrders }, { data: activeOrders }, { data: todayPayments }] =
     await Promise.all([

@@ -78,6 +78,8 @@ export async function createRiderProfileAction(data: unknown) {
       p_license_number: parsed.data.license_number,
     })
     if (error) return { error: 'Failed to resubmit rider profile' }
+    revalidatePath('/rider/onboarding')
+    revalidatePath('/rider/dashboard')
     return { success: true }
   }
 
@@ -96,6 +98,8 @@ export async function createRiderProfileAction(data: unknown) {
     return { error: 'Failed to create rider profile' }
   }
 
+  revalidatePath('/rider/onboarding')
+  revalidatePath('/rider/dashboard')
   return { success: true }
 }
 

@@ -12,7 +12,46 @@ export default async function RiderOnboardingPage() {
     ? await supabase.from('riders').select('status, rejection_reason').eq('user_id', user.id).maybeSingle()
     : { data: null }
 
+  const isPending = rider?.status === 'pending'
   const isRejected = rider?.status === 'rejected'
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white px-4 py-12 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-6 bg-orange-100">
+            <svg className="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Application under review</h1>
+          <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+            We&apos;ve received your application and documents. Our team will review them within 24–48 hours. You&apos;ll receive a notification once a decision has been made.
+          </p>
+          <div className="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-2xl text-left space-y-2">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center shrink-0 mt-0.5">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <span className="text-sm text-gray-700">Application submitted</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-orange-400 flex items-center justify-center shrink-0 mt-0.5">
+                <span className="w-2 h-2 rounded-full bg-white block" />
+              </div>
+              <span className="text-sm text-gray-700">Documents under review</span>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 rounded-full bg-gray-200 shrink-0 mt-0.5" />
+              <span className="text-sm text-gray-400">Account activation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-white px-4 py-12">
