@@ -6,13 +6,27 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { riderProfileSchema, type RiderProfileInput } from '@sendit/validations'
-import { createRiderProfileAction, uploadRiderDocumentAction, submitRiderKycAction } from '@/app/rider/profile-actions'
-import { createClient } from '@/lib/supabase/client'
+import {
+  createRiderProfileAction,
+  uploadRiderDocumentAction,
+  submitRiderKycAction,
+  uploadRiderDocToStorageAction,
+} from '@/app/rider/profile-actions'
 
 interface DocUploadState {
   file: File | null
-  url: string | null
+  previewUrl: string | null
+  storagePath: string | null
   isUploading: boolean
+  error: string | null
+}
+
+const EMPTY_DOC: DocUploadState = {
+  file: null,
+  previewUrl: null,
+  storagePath: null,
+  isUploading: false,
+  error: null,
 }
 
 function DocUpload({
@@ -26,7 +40,8 @@ function DocUpload({
   state: DocUploadState
   onFileChange: (file: File) => void
 }) {
-  const hasPreview = !!state.url
+  const hasUploaded = !!state.storagePath
+  const hasError = !!state.error
 
   return (
     <div>
@@ -39,16 +54,24 @@ function DocUpload({
           onChange={(e) => {
             const f = e.target.files?.[0]
             if (f) onFileChange(f)
+            // Reset so same file can be re-selected after an error
+            e.target.value = ''
           }}
           className="sr-only"
         />
-        <div className={`relative border-2 border-dashed rounded-xl transition ${
-          hasPreview ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:border-orange-300 bg-gray-50'
-        }`}>
-          {hasPreview ? (
+        <div
+          className={`relative border-2 border-dashed rounded-xl transition ${
+            hasUploaded
+              ? 'border-green-400 bg-green-50'
+              : hasError
+              ? 'border-red-300 bg-red-50'
+              : 'border-gray-200 hover:border-orange-300 bg-gray-50'
+          }`}
+        >
+          {hasUploaded ? (
             <div className="flex items-center gap-3 p-4">
-              {state.url && state.file?.type.startsWith('image/') ? (
-                <img src={state.url} alt={label} className="w-14 h-14 rounded-lg object-cover shrink-0" />
+              {state.previewUrl && state.file?.type.startsWith('image/') ? (
+                <img src={state.previewUrl} alt={label} className="w-14 h-14 rounded-lg object-cover shrink-0" />
               ) : (
                 <div className="w-14 h-14 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
                   <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -67,6 +90,19 @@ function DocUpload({
               <span className="w-5 h-5 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
               <span className="text-sm text-gray-500">Uploading...</span>
             </div>
+          ) : hasError ? (
+            <div className="flex items-center gap-3 p-4">
+              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-600">Upload failed</p>
+                <p className="text-xs text-red-400 truncate">{state.error}</p>
+              </div>
+              <p className="text-xs text-orange-500 shrink-0">Tap to retry</p>
+            </div>
           ) : (
             <div className="flex flex-col items-center justify-center p-6 text-center">
               <svg className="w-8 h-8 text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
@@ -84,8 +120,8 @@ function DocUpload({
 
 export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boolean }) {
   const [isLoading, setIsLoading] = useState(false)
-  const [licenseDoc, setLicenseDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
-  const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>({ file: null, url: null, isUploading: false })
+  const [licenseDoc, setLicenseDoc] = useState<DocUploadState>(EMPTY_DOC)
+  const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>(EMPTY_DOC)
   const [bvn, setBvn] = useState('')
   const [nin, setNin] = useState('')
   const router = useRouter()
@@ -100,39 +136,31 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
     docType: 'license' | 'vehicle',
     setState: React.Dispatch<React.SetStateAction<DocUploadState>>,
   ) {
-    setState((prev) => ({ ...prev, file, isUploading: true }))
+    setState((prev) => {
+      if (prev.previewUrl) URL.revokeObjectURL(prev.previewUrl)
+      return { file, previewUrl: null, storagePath: null, isUploading: true, error: null }
+    })
 
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { toast.error('Not authenticated'); return }
+    const formData = new FormData()
+    formData.append('file', file)
 
-      const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${user.id}/${docType}-${Date.now()}.${ext}`
+    const result = await uploadRiderDocToStorageAction(docType, formData)
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('rider-documents')
-        .upload(path, file, { upsert: true })
-
-      if (uploadError) { toast.error(`Failed to upload ${docType} document`); return }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('rider-documents')
-        .getPublicUrl(uploadData.path)
-
-      setState({ file, url: publicUrl, isUploading: false })
-    } catch {
-      toast.error('Upload failed')
-      setState((prev) => ({ ...prev, isUploading: false }))
+    if (result.error) {
+      setState({ file, previewUrl: null, storagePath: null, isUploading: false, error: result.error })
+      return
     }
+
+    const previewUrl = file.type.startsWith('image/') ? URL.createObjectURL(file) : null
+    setState({ file, previewUrl, storagePath: result.path!, isUploading: false, error: null })
   }
 
   async function onSubmit(data: RiderProfileInput) {
-    if (!licenseDoc.url) {
-      toast.error('Please upload your driver\'s license')
+    if (!licenseDoc.storagePath) {
+      toast.error("Please upload your driver's license")
       return
     }
-    if (!vehicleDoc.url) {
+    if (!vehicleDoc.storagePath) {
       toast.error('Please upload your vehicle registration document')
       return
     }
@@ -146,14 +174,14 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
         return
       }
 
-      // Save document URLs and KYC details in parallel
-      const kycPayload = bvn.trim().length === 11 || nin.trim().length === 11
-        ? submitRiderKycAction({ bvn: bvn.trim(), nin: nin.trim() })
-        : Promise.resolve({ success: true })
+      const kycPayload =
+        bvn.trim().length === 11 || nin.trim().length === 11
+          ? submitRiderKycAction({ bvn: bvn.trim(), nin: nin.trim() })
+          : Promise.resolve({ success: true })
 
       await Promise.all([
-        uploadRiderDocumentAction('license', licenseDoc.url!),
-        uploadRiderDocumentAction('vehicle', vehicleDoc.url!),
+        uploadRiderDocumentAction('license', licenseDoc.storagePath!),
+        uploadRiderDocumentAction('vehicle', vehicleDoc.storagePath!),
         kycPayload,
       ])
 

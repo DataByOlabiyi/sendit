@@ -4,6 +4,44 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { riderProfileSchema, riderKycSchema } from '@sendit/validations'
 
+const ALLOWED_MIME_TYPES: Record<string, string> = {
+  'image/jpeg': 'image/jpeg',
+  'image/jpg': 'image/jpeg',
+  'image/png': 'image/png',
+  'application/pdf': 'application/pdf',
+}
+
+export async function uploadRiderDocToStorageAction(
+  docType: 'license' | 'vehicle',
+  formData: FormData,
+): Promise<{ path?: string; error?: string }> {
+  if (!['license', 'vehicle'].includes(docType)) return { error: 'Invalid document type' }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const file = formData.get('file') as File | null
+  if (!file || file.size === 0) return { error: 'No file provided' }
+
+  const contentType = ALLOWED_MIME_TYPES[file.type]
+  if (!contentType) return { error: 'Unsupported file type. Use JPG, PNG or PDF.' }
+
+  if (file.size > 10 * 1024 * 1024) return { error: 'File too large. Maximum size is 10 MB.' }
+
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+  const path = `${user.id}/${docType}-${Date.now()}.${ext}`
+
+  const bytes = await file.arrayBuffer()
+  const { data, error: uploadError } = await supabase.storage
+    .from('rider-documents')
+    .upload(path, bytes, { contentType, upsert: false })
+
+  if (uploadError) return { error: 'Upload failed. Please try again.' }
+
+  return { path: data.path }
+}
+
 export async function createRiderProfileAction(data: unknown) {
   const supabase = await createClient()
   const {
@@ -59,7 +97,7 @@ export async function createRiderProfileAction(data: unknown) {
   return { success: true }
 }
 
-export async function uploadRiderDocumentAction(docType: 'license' | 'vehicle', imageUrl: string) {
+export async function uploadRiderDocumentAction(docType: 'license' | 'vehicle', storagePath: string) {
   if (!['license', 'vehicle'].includes(docType)) return { error: 'Invalid document type' }
 
   const supabase = await createClient()
@@ -68,15 +106,13 @@ export async function uploadRiderDocumentAction(docType: 'license' | 'vehicle', 
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Validate URL points to our rider-documents bucket
-  const supabaseStorageBase = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object`
-  const expectedPrefix = `${supabaseStorageBase}/public/rider-documents/${user.id}/`
-  if (!imageUrl.startsWith(expectedPrefix)) return { error: 'Invalid document URL' }
+  // Path must be scoped to this user (format: {user_id}/{docType}-{timestamp}.{ext})
+  if (!storagePath.startsWith(`${user.id}/`)) return { error: 'Invalid document path' }
 
   const column = docType === 'license' ? 'license_doc_url' : 'vehicle_doc_url'
   const { error } = await supabase
     .from('riders')
-    .update({ [column]: imageUrl })
+    .update({ [column]: storagePath })
     .eq('user_id', user.id)
 
   if (error) return { error: 'Failed to save document' }
