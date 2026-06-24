@@ -34,12 +34,12 @@ export default async function RiderOnboardingPage() {
   // We enforce the same per-user scope via eq('user_id', user.id).
   const admin = user ? createAdminClient() : null
 
+  // select('*') avoids column-not-found errors for columns added by later
+  // migrations (e.g. rejection_reason). Explicitly listing a missing column
+  // makes PostgREST return null for the whole row, hiding pending status.
   const [{ data: rider }, { data: profile }] = await Promise.all([
     admin
-      ? admin.from('riders')
-          .select('status, rejection_reason, vehicle_type, vehicle_model, vehicle_plate, license_number, created_at')
-          .eq('user_id', user!.id)
-          .maybeSingle()
+      ? admin.from('riders').select('*').eq('user_id', user!.id).maybeSingle()
       : Promise.resolve({ data: null }),
     user
       ? supabase.from('users').select('full_name').eq('id', user.id).maybeSingle()
