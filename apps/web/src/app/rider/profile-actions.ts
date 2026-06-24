@@ -7,8 +7,8 @@ import { riderProfileSchema, riderKycSchema } from '@sendit/validations'
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/jpeg': 'image/jpeg',
-  'image/jpg': 'image/jpeg',
-  'image/png': 'image/png',
+  'image/jpg':  'image/jpeg',
+  'image/png':  'image/png',
   'application/pdf': 'application/pdf',
 }
 
@@ -34,10 +34,8 @@ export async function uploadRiderDocToStorageAction(
   const path = `${user.id}/${docType}-${Date.now()}.${ext}`
 
   const bytes = await file.arrayBuffer()
-  // Use admin client for storage upload — RLS on storage.objects blocks the
-  // anon-key client even server-side; auth + path scoping above is the guard.
-  const adminSupabase = createAdminClient()
-  const { data, error: uploadError } = await adminSupabase.storage
+  const admin = createAdminClient()
+  const { data, error: uploadError } = await admin.storage
     .from('rider-documents')
     .upload(path, bytes, { contentType, upsert: false })
 
@@ -48,9 +46,7 @@ export async function uploadRiderDocToStorageAction(
 
 export async function createRiderProfileAction(data: unknown) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
   const parsed = riderProfileSchema.safeParse(data)
@@ -58,9 +54,11 @@ export async function createRiderProfileAction(data: unknown) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid rider profile data' }
   }
 
+  // All rider DB writes use the admin client — the regular server client's JWT
+  // is not always forwarded to PostgREST, causing RLS to silently return 0 rows.
+  // auth.getUser() above is the authentication gate; all queries are scoped to user.id.
   const admin = createAdminClient()
 
-  // Check if rider already exists (handles resubmission by rejected riders)
   const { data: existing } = await admin
     .from('riders')
     .select('id, status')
@@ -69,34 +67,50 @@ export async function createRiderProfileAction(data: unknown) {
 
   if (existing) {
     if (existing.status !== 'rejected') return { error: 'Rider profile already exists' }
-    // Resubmit via SECURITY DEFINER RPC — bypasses RLS regardless of trigger chain
-    const { error } = await supabase.rpc('resubmit_rider_profile', {
-      p_user_id:        user.id,
-      p_vehicle_type:   parsed.data.vehicle_type,
-      p_vehicle_plate:  parsed.data.vehicle_plate,
-      p_vehicle_model:  parsed.data.vehicle_model,
-      p_license_number: parsed.data.license_number,
-    })
+
+    const { error } = await admin
+      .from('riders')
+      .update({
+        vehicle_type:     parsed.data.vehicle_type,
+        vehicle_plate:    parsed.data.vehicle_plate,
+        vehicle_model:    parsed.data.vehicle_model,
+        license_number:   parsed.data.license_number,
+        status:           'pending',
+        rejection_reason: null,
+      })
+      .eq('user_id', user.id)
+      .eq('status', 'rejected')
+
     if (error) return { error: 'Failed to resubmit rider profile' }
+
     revalidatePath('/rider/onboarding')
     revalidatePath('/rider/dashboard')
     return { success: true }
   }
 
-  // Create rider + wallet atomically via SECURITY DEFINER RPC.
-  // Avoids any trigger / RLS chain issues with the direct INSERT path.
-  const { error } = await supabase.rpc('create_rider_profile', {
-    p_user_id:        user.id,
-    p_vehicle_type:   parsed.data.vehicle_type,
-    p_vehicle_plate:  parsed.data.vehicle_plate,
-    p_vehicle_model:  parsed.data.vehicle_model,
-    p_license_number: parsed.data.license_number,
-  })
+  const { data: newRider, error } = await admin
+    .from('riders')
+    .insert({
+      user_id:        user.id,
+      vehicle_type:   parsed.data.vehicle_type,
+      vehicle_plate:  parsed.data.vehicle_plate,
+      vehicle_model:  parsed.data.vehicle_model,
+      license_number: parsed.data.license_number,
+      status:         'pending',
+      is_online:      false,
+    })
+    .select('id')
+    .single()
 
   if (error) {
     if (error.code === '23505') return { error: 'Rider profile already exists' }
     return { error: 'Failed to create rider profile' }
   }
+
+  // Wallet row — trigger may also attempt this; ON CONFLICT makes both safe.
+  await admin
+    .from('rider_wallet')
+    .upsert({ rider_id: newRider.id }, { onConflict: 'rider_id', ignoreDuplicates: true })
 
   revalidatePath('/rider/onboarding')
   revalidatePath('/rider/dashboard')
@@ -107,16 +121,14 @@ export async function uploadRiderDocumentAction(docType: 'license' | 'vehicle', 
   if (!['license', 'vehicle'].includes(docType)) return { error: 'Invalid document type' }
 
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
-  // Path must be scoped to this user (format: {user_id}/{docType}-{timestamp}.{ext})
   if (!storagePath.startsWith(`${user.id}/`)) return { error: 'Invalid document path' }
 
   const column = docType === 'license' ? 'license_doc_url' : 'vehicle_doc_url'
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('riders')
     .update({ [column]: storagePath })
     .eq('user_id', user.id)
@@ -139,8 +151,8 @@ export async function submitRiderKycAction(input: unknown) {
   }
 
   const { bvn, nin } = parsed.data
-
-  const { error } = await supabase
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('riders')
     .update({ bvn, nin, kyc_status: 'submitted' })
     .eq('user_id', user.id)
@@ -154,21 +166,20 @@ export async function submitRiderKycAction(input: unknown) {
 
 export async function toggleOnlineStatusAction(isOnline: boolean) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
 
+  const admin = createAdminClient()
+
   if (!isOnline) {
-    // Block going offline when rider has an active delivery
-    const { data: rider } = await supabase
+    const { data: rider } = await admin
       .from('riders')
       .select('id')
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
     if (rider) {
-      const { count } = await supabase
+      const { count } = await admin
         .from('orders')
         .select('*', { count: 'exact', head: true })
         .eq('rider_id', rider.id)
@@ -180,7 +191,7 @@ export async function toggleOnlineStatusAction(isOnline: boolean) {
     }
   }
 
-  const { error } = await supabase
+  const { error } = await admin
     .from('riders')
     .update({ is_online: isOnline })
     .eq('user_id', user.id)

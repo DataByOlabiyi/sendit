@@ -186,7 +186,9 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
       ])
 
       toast.success('Profile submitted! Awaiting admin approval.')
-      router.push('/rider/dashboard')
+      // Refresh the current server component — re-runs the page with the new
+      // pending rider in DB, which renders the review screen in place.
+      router.refresh()
     } catch {
       toast.error('Something went wrong')
     } finally {
