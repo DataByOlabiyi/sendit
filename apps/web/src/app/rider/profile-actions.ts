@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { riderProfileSchema, riderKycSchema } from '@sendit/validations'
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
@@ -33,7 +34,10 @@ export async function uploadRiderDocToStorageAction(
   const path = `${user.id}/${docType}-${Date.now()}.${ext}`
 
   const bytes = await file.arrayBuffer()
-  const { data, error: uploadError } = await supabase.storage
+  // Use admin client for storage upload — RLS on storage.objects blocks the
+  // anon-key client even server-side; auth + path scoping above is the guard.
+  const adminSupabase = createAdminClient()
+  const { data, error: uploadError } = await adminSupabase.storage
     .from('rider-documents')
     .upload(path, bytes, { contentType, upsert: false })
 
