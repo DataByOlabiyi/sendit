@@ -58,11 +58,6 @@ export async function createRiderProfileAction(data: unknown) {
     return { error: parsed.error.issues[0]?.message ?? 'Invalid rider profile data' }
   }
 
-  // Use admin client for riders writes: the on_rider_created trigger inserts
-  // into rider_wallet which has RLS but no INSERT policy, so the trigger fails
-  // when run as the anon/user role. Admin client (service_role) bypasses RLS
-  // for this operation. Auth is already validated above; user_id is pinned to
-  // the authenticated user's id so no privilege escalation is possible.
   const admin = createAdminClient()
 
   // Check if rider already exists (handles resubmission by rejected riders)
@@ -74,30 +69,26 @@ export async function createRiderProfileAction(data: unknown) {
 
   if (existing) {
     if (existing.status !== 'rejected') return { error: 'Rider profile already exists' }
-    // Resubmission: reset status to pending and clear rejection reason
-    const { error } = await admin
-      .from('riders')
-      .update({
-        vehicle_type: parsed.data.vehicle_type,
-        vehicle_plate: parsed.data.vehicle_plate,
-        vehicle_model: parsed.data.vehicle_model,
-        license_number: parsed.data.license_number,
-        status: 'pending',
-        rejection_reason: null,
-      })
-      .eq('user_id', user.id)
+    // Resubmit via SECURITY DEFINER RPC — bypasses RLS regardless of trigger chain
+    const { error } = await supabase.rpc('resubmit_rider_profile', {
+      p_user_id:        user.id,
+      p_vehicle_type:   parsed.data.vehicle_type,
+      p_vehicle_plate:  parsed.data.vehicle_plate,
+      p_vehicle_model:  parsed.data.vehicle_model,
+      p_license_number: parsed.data.license_number,
+    })
     if (error) return { error: 'Failed to resubmit rider profile' }
     return { success: true }
   }
 
-  const { error } = await admin.from('riders').insert({
-    user_id: user.id,
-    vehicle_type: parsed.data.vehicle_type,
-    vehicle_plate: parsed.data.vehicle_plate,
-    vehicle_model: parsed.data.vehicle_model,
-    license_number: parsed.data.license_number,
-    status: 'pending',
-    is_online: false,
+  // Create rider + wallet atomically via SECURITY DEFINER RPC.
+  // Avoids any trigger / RLS chain issues with the direct INSERT path.
+  const { error } = await supabase.rpc('create_rider_profile', {
+    p_user_id:        user.id,
+    p_vehicle_type:   parsed.data.vehicle_type,
+    p_vehicle_plate:  parsed.data.vehicle_plate,
+    p_vehicle_model:  parsed.data.vehicle_model,
+    p_license_number: parsed.data.license_number,
   })
 
   if (error) {
