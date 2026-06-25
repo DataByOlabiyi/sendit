@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { RidersTable } from '@/components/riders/riders-table'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'Riders' }
 
 export default async function RidersPage() {

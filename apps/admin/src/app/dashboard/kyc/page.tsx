@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { KycTable } from '@/components/kyc/kyc-table'
 
+export const dynamic = 'force-dynamic'
 export const metadata: Metadata = { title: 'KYC Review' }
 
 export default async function KycPage() {
