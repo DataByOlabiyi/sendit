@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+const VALID_ACTIONS = ['approve', 'request_changes', 'reject', 'ban'] as const
+type ReviewAction = (typeof VALID_ACTIONS)[number]
+
 export async function POST(request: Request) {
   const supabase = await createClient()
 
@@ -18,11 +21,14 @@ export async function POST(request: Request) {
   }
 
   const { riderId, action, reason } = await request.json()
-  if (!riderId || !['approve', 'reject'].includes(action)) {
+
+  if (!riderId || !VALID_ACTIONS.includes(action)) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  const newStatus = action === 'approve' ? 'approved' : 'rejected'
+  if ((action === 'request_changes' || action === 'ban') && !reason?.trim()) {
+    return NextResponse.json({ error: 'A reason is required for this action' }, { status: 400 })
+  }
 
   const { data: rider, error: fetchError } = await supabase
     .from('riders')
@@ -34,28 +40,64 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Rider not found' }, { status: 404 })
   }
 
-  const updatePayload: Record<string, unknown> = { kyc_status: newStatus }
-  if (action === 'reject' && reason) {
-    updatePayload.rejection_reason = reason
+  let updatePayload: Record<string, unknown>
+  let notificationTitle: string
+  let notificationBody: string
+
+  switch (action as ReviewAction) {
+    case 'approve':
+      updatePayload = { status: 'approved', kyc_status: 'approved' }
+      notificationTitle = 'Application Approved ✓'
+      notificationBody = 'Your rider application has been approved. You can now start accepting deliveries!'
+      break
+
+    case 'request_changes':
+      updatePayload = {
+        status: 'needs_info',
+        admin_question: reason.trim(),
+        resubmission_note: null,
+      }
+      notificationTitle = 'Action Required on Your Application'
+      notificationBody = `Our team needs more information before we can proceed: ${reason.trim()}`
+      break
+
+    case 'reject':
+      updatePayload = {
+        status: 'rejected',
+        kyc_status: 'rejected',
+        rejection_reason: reason?.trim() ?? null,
+        admin_question: null,
+      }
+      notificationTitle = 'Application Not Approved'
+      notificationBody = reason?.trim()
+        ? `Your application was not approved. Reason: ${reason.trim()}. You may update your details and resubmit.`
+        : 'Your application was not approved. You may update your details and resubmit.'
+      break
+
+    case 'ban':
+      updatePayload = {
+        status: 'banned',
+        kyc_status: 'rejected',
+        rejection_reason: reason.trim(),
+        admin_question: null,
+      }
+      notificationTitle = 'Account Suspended'
+      notificationBody = 'Your account has been permanently suspended following a review by our team.'
+      break
   }
 
   const { error } = await supabase
     .from('riders')
-    .update(updatePayload)
+    .update(updatePayload!)
     .eq('id', riderId)
 
   if (error) return NextResponse.json({ error: 'Update failed' }, { status: 500 })
 
-  // Notify the rider
-  const notificationBody = action === 'approve'
-    ? 'Your identity verification (KYC) has been approved. Your account is fully verified.'
-    : `Your identity verification was not approved. Reason: ${reason ?? 'Documents could not be verified'}. Please update your details and resubmit.`
-
   await supabase.from('notifications').insert({
     user_id: rider.user_id,
     type: 'system',
-    title: action === 'approve' ? 'Identity Verified ✓' : 'KYC Review Failed',
-    body: notificationBody,
+    title: notificationTitle!,
+    body: notificationBody!,
     is_read: false,
   })
 

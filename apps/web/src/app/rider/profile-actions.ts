@@ -66,17 +66,20 @@ export async function createRiderProfileAction(data: unknown) {
     .maybeSingle()
 
   if (existing) {
+    if (existing.status === 'banned') return { error: 'Your account has been permanently suspended.' }
     if (existing.status !== 'rejected') return { error: 'Rider profile already exists' }
 
     const { error } = await admin
       .from('riders')
       .update({
-        vehicle_type:     parsed.data.vehicle_type,
-        vehicle_plate:    parsed.data.vehicle_plate,
-        vehicle_model:    parsed.data.vehicle_model,
-        license_number:   parsed.data.license_number,
-        status:           'pending',
-        rejection_reason: null,
+        vehicle_type:      parsed.data.vehicle_type,
+        vehicle_plate:     parsed.data.vehicle_plate,
+        vehicle_model:     parsed.data.vehicle_model,
+        license_number:    parsed.data.license_number,
+        status:            'pending',
+        rejection_reason:  null,
+        resubmission_note: null,
+        admin_question:    null,
       })
       .eq('user_id', user.id)
       .eq('status', 'rejected')
@@ -198,6 +201,48 @@ export async function toggleOnlineStatusAction(isOnline: boolean) {
 
   if (error) return { error: 'Failed to update status' }
 
+  revalidatePath('/rider/dashboard')
+  return { success: true }
+}
+
+export async function respondToAdminKycRequestAction(input: {
+  note?: string
+  licenseStoragePath?: string
+  vehicleStoragePath?: string
+}) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Not authenticated' }
+
+  const admin = createAdminClient()
+
+  const { data: rider } = await admin
+    .from('riders')
+    .select('id, status')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!rider) return { error: 'Rider profile not found' }
+  if (rider.status !== 'needs_info') return { error: 'No pending information request on your application' }
+
+  const updatePayload: Record<string, unknown> = {
+    status:            'pending',
+    admin_question:    null,
+    resubmission_note: input.note?.trim() || null,
+  }
+
+  if (input.licenseStoragePath) updatePayload.license_doc_url = input.licenseStoragePath
+  if (input.vehicleStoragePath) updatePayload.vehicle_doc_url = input.vehicleStoragePath
+
+  const { error } = await admin
+    .from('riders')
+    .update(updatePayload)
+    .eq('user_id', user.id)
+    .eq('status', 'needs_info')
+
+  if (error) return { error: 'Failed to submit your response' }
+
+  revalidatePath('/rider/onboarding')
   revalidatePath('/rider/dashboard')
   return { success: true }
 }

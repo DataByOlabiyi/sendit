@@ -123,7 +123,9 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
   const [licenseDoc, setLicenseDoc] = useState<DocUploadState>(EMPTY_DOC)
   const [vehicleDoc, setVehicleDoc] = useState<DocUploadState>(EMPTY_DOC)
   const [bvn, setBvn] = useState('')
+  const [bvnError, setBvnError] = useState<string | null>(null)
   const [nin, setNin] = useState('')
+  const [ninError, setNinError] = useState<string | null>(null)
   const router = useRouter()
 
   const { register, handleSubmit, formState: { errors } } = useForm<RiderProfileInput>({
@@ -164,7 +166,17 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
       toast.error('Please upload your vehicle registration document')
       return
     }
+    if (bvn.trim().length !== 11) {
+      setBvnError('BVN must be exactly 11 digits')
+      return
+    }
+    if (nin.trim().length !== 11) {
+      setNinError('NIN must be exactly 11 digits')
+      return
+    }
 
+    setBvnError(null)
+    setNinError(null)
     setIsLoading(true)
     try {
       const result = await createRiderProfileAction(data)
@@ -174,10 +186,7 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
         return
       }
 
-      const kycPayload =
-        bvn.trim().length === 11 || nin.trim().length === 11
-          ? submitRiderKycAction({ bvn: bvn.trim(), nin: nin.trim() })
-          : Promise.resolve({ success: true })
+      const kycPayload = submitRiderKycAction({ bvn: bvn.trim(), nin: nin.trim() })
 
       await Promise.all([
         uploadRiderDocumentAction('license', licenseDoc.storagePath!),
@@ -254,31 +263,41 @@ export function RiderOnboardingForm({ isResubmit = false }: { isResubmit?: boole
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              BVN <span className="text-gray-400 font-normal">(Bank Verification Number)</span>
+              BVN <span className="text-gray-400 font-normal">(Bank Verification Number)</span>{' '}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="tel"
               inputMode="numeric"
               maxLength={11}
               value={bvn}
-              onChange={(e) => setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              onChange={(e) => {
+                setBvn(e.target.value.replace(/\D/g, '').slice(0, 11))
+                if (bvnError) setBvnError(null)
+              }}
               placeholder="11-digit BVN"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+              className={`w-full px-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400 ${bvnError ? 'border-red-400' : 'border-gray-200'}`}
             />
+            {bvnError && <p className="mt-1.5 text-xs text-red-500">{bvnError}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              NIN <span className="text-gray-400 font-normal">(National Identification Number)</span>
+              NIN <span className="text-gray-400 font-normal">(National Identification Number)</span>{' '}
+              <span className="text-red-500">*</span>
             </label>
             <input
               type="tel"
               inputMode="numeric"
               maxLength={11}
               value={nin}
-              onChange={(e) => setNin(e.target.value.replace(/\D/g, '').slice(0, 11))}
+              onChange={(e) => {
+                setNin(e.target.value.replace(/\D/g, '').slice(0, 11))
+                if (ninError) setNinError(null)
+              }}
               placeholder="11-digit NIN"
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+              className={`w-full px-4 py-3 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400 ${ninError ? 'border-red-400' : 'border-gray-200'}`}
             />
+            {ninError && <p className="mt-1.5 text-xs text-red-500">{ninError}</p>}
           </div>
         </div>
 

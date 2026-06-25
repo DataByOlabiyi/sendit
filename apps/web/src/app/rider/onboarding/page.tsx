@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { RiderOnboardingForm } from '@/components/rider/onboarding-form'
+import { NeedsInfoForm } from '@/components/rider/needs-info-form'
 
 export const metadata: Metadata = { title: 'Rider Onboarding' }
 
@@ -47,8 +48,60 @@ export default async function RiderOnboardingPage() {
   ])
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'Rider'
-  const isPending = rider?.status === 'pending'
-  const isRejected = rider?.status === 'rejected'
+  const isPending   = rider?.status === 'pending'
+  const isNeedsInfo = rider?.status === 'needs_info'
+  const isRejected  = rider?.status === 'rejected'
+  const isBanned    = rider?.status === 'banned'
+
+  if (isBanned) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 px-4 py-10 flex items-center justify-center">
+        <div className="max-w-md w-full text-center space-y-5">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gray-900 shadow-lg mx-auto">
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Account Suspended</h1>
+            <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+              Your account has been permanently suspended following a review by our team.
+              If you believe this is a mistake, please contact us.
+            </p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 text-left">
+            <p className="text-xs text-gray-400">
+              Questions? Reach us at{' '}
+              <a href="mailto:support@sendit.ng" className="text-orange-500 font-medium hover:underline">
+                support@sendit.ng
+              </a>
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (isNeedsInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-white to-orange-50 px-4 py-10">
+        <div className="max-w-lg mx-auto space-y-5">
+          <div className="text-center pt-4 pb-2">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 bg-blue-500 shadow-lg shadow-blue-200">
+              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Action required, {firstName}</h1>
+            <p className="text-sm text-gray-500 mt-1">Our team needs a bit more from you before we can proceed</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+            <NeedsInfoForm adminQuestion={rider!.admin_question!} />
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (isPending) {
     const vehicleLabel = VEHICLE_LABELS[rider?.vehicle_type ?? ''] ?? rider?.vehicle_type ?? '—'
