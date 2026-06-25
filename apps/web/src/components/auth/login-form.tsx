@@ -49,7 +49,7 @@ export function LoginForm() {
           queryParams: provider === 'google' ? { access_type: 'offline', prompt: 'consent' } : undefined,
         },
       })
-      if (error) toast.error(error.message)
+      if (error) toast.error('Social login failed. Please try again.')
     } catch {
       toast.error('Social login failed')
     } finally {

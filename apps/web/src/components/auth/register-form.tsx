@@ -312,7 +312,7 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false,
               id="password"
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
-              placeholder="Min. 8 characters"
+              placeholder="Min. 12 characters"
               className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
             />
             <button

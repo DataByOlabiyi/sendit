@@ -30,22 +30,35 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Verify the token with Supabase (JWKS verification — no DB call)
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
-  const isPublicPath = pathname === '/auth/login' || pathname === '/unauthorized'
+  const isLoginPage = pathname === '/auth/login'
+  const isMfaPage = pathname === '/auth/mfa'
+  const isPublicPath = isLoginPage || pathname === '/unauthorized'
 
-  if (!user && !isPublicPath) {
+  // Unauthenticated — send to login (allow MFA page through so session can verify)
+  if (!user && !isPublicPath && !isMfaPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/auth/login'
     return NextResponse.redirect(url)
   }
 
   if (user) {
-    // Always query the DB for the role — the decoded JWT claim cannot be trusted
-    // for authorisation because it is not re-verified after the getUser() call
-    // and a tampered claim could bypass the UI-layer admin check.
+    // Check MFA assurance level — if the admin has TOTP enrolled but hasn't
+    // verified the second factor in this session, redirect to the MFA challenge.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    const needsMfa = aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2'
+
+    if (needsMfa && !isMfaPage) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/auth/mfa'
+      return NextResponse.redirect(url)
+    }
+
+    // MFA verified (or not enrolled) — now check admin role.
+    // Always query the DB for role; the decoded JWT claim cannot be trusted
+    // for authorisation because a tampered claim could bypass the UI-layer check.
     const { data: profile } = await supabase
       .from('users')
       .select('role')
@@ -60,10 +73,14 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    if (pathname === '/auth/login') {
-      const url = request.nextUrl.clone()
-      url.pathname = '/dashboard'
-      return NextResponse.redirect(url)
+    // Authenticated admin — redirect away from login/MFA pages
+    if (isLoginPage || isMfaPage) {
+      // Only redirect from MFA page if MFA is not needed
+      if (!isMfaPage || !needsMfa) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/dashboard'
+        return NextResponse.redirect(url)
+      }
     }
   }
 

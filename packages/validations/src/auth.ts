@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(12, 'Password must be at least 12 characters'),
 })
 
 export const registerSchema = z
@@ -12,7 +12,7 @@ export const registerSchema = z
     phone: z
       .string()
       .regex(/^(\+234|0)[789][01]\d{8}$/, 'Enter a valid Nigerian phone number'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(12, 'Password must be at least 12 characters'),
     confirm_password: z.string(),
     // 'admin' is intentionally excluded — see handle_new_user DB trigger
     role: z.enum(['customer', 'rider']),
@@ -28,7 +28,7 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(12, 'Password must be at least 12 characters'),
     confirm_password: z.string(),
   })
   .refine((data) => data.password === data.confirm_password, {

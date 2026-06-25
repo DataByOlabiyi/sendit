@@ -203,16 +203,27 @@ export function SettingsForm({ initialSettings, adminProfile }: SettingsFormProp
       {/* Security */}
       <div className="bg-white rounded-2xl border border-gray-100 p-6">
         <h2 className="text-base font-semibold text-gray-900">Security</h2>
-        <p className="text-sm text-gray-500 mt-1 mb-5">Manage your admin account password</p>
-        <button
-          onClick={handlePasswordReset}
-          disabled={isSendingReset}
-          type="button"
-          className="w-full py-3 border border-gray-200 hover:border-gray-300 active:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 text-sm font-semibold rounded-xl transition-colors"
-        >
-          {isSendingReset ? 'Sending…' : 'Send Password Reset Email'}
-        </button>
-        <p className="text-xs text-gray-400 mt-2 text-center">A reset link will be sent to {adminProfile.email}</p>
+        <p className="text-sm text-gray-500 mt-1 mb-5">Manage your admin account password and two-factor authentication</p>
+        <div className="space-y-3">
+          <button
+            onClick={handlePasswordReset}
+            disabled={isSendingReset}
+            type="button"
+            className="w-full py-3 border border-gray-200 hover:border-gray-300 active:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+          >
+            {isSendingReset ? 'Sending…' : 'Send Password Reset Email'}
+          </button>
+          <a
+            href="/dashboard/settings/mfa"
+            className="flex items-center justify-between w-full py-3 px-4 border border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-semibold rounded-xl transition-colors"
+          >
+            <span>Two-Factor Authentication (MFA)</span>
+            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </a>
+        </div>
+        <p className="text-xs text-gray-400 mt-2 text-center">Reset link will be sent to {adminProfile.email}</p>
       </div>
 
     </div>
