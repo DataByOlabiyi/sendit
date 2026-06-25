@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { formatDate } from '@sendit/utils'
 import { suspendUserAction, reactivateUserAction } from '@/app/dashboard/users/actions'
@@ -82,10 +83,10 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
                 paginated.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition">
                     <td className="px-5 py-4">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{user.full_name}</p>
+                      <Link href={`/dashboard/users/${user.id}`} className="group block">
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-orange-500 transition">{user.full_name}</p>
                         <p className="text-xs text-gray-500">{user.email}</p>
-                      </div>
+                      </Link>
                     </td>
                     <td className="px-5 py-4 text-sm text-gray-600">{user.phone ?? '—'}</td>
                     <td className="px-5 py-4 text-sm text-gray-500">{formatDate(user.created_at)}</td>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { formatDate } from '@sendit/utils'
 import { approveRiderAction, suspendRiderAction, rejectRiderAction } from '@/app/dashboard/riders/actions'
@@ -276,10 +277,10 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
             filtered.map((rider) => (
               <div key={rider.id} className="bg-white rounded-2xl border border-gray-100 p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">{rider.users?.full_name ?? '—'}</p>
+                  <Link href={`/dashboard/riders/${rider.id}`} className="group">
+                    <p className="text-sm font-semibold text-gray-900 group-hover:text-orange-500 transition">{rider.users?.full_name ?? '—'}</p>
                     <p className="text-xs text-gray-500">{rider.users?.email}</p>
-                  </div>
+                  </Link>
                   <div className="flex flex-col items-end gap-1">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium capitalize ${statusStyles[rider.status] ?? 'bg-gray-100 text-gray-600'}`}>
                       {rider.status}
@@ -326,12 +327,12 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                   filtered.map((rider) => (
                     <tr key={rider.id} className="hover:bg-gray-50 transition">
                       <td className="px-5 py-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{rider.users?.full_name ?? '—'}</p>
+                        <Link href={`/dashboard/riders/${rider.id}`} className="group block">
+                          <p className="text-sm font-medium text-gray-900 group-hover:text-orange-500 transition">{rider.users?.full_name ?? '—'}</p>
                           <p className="text-xs text-gray-500">{rider.users?.email}</p>
                           <p className="text-xs text-gray-400">{rider.users?.phone ?? '—'}</p>
                           <p className="text-xs text-gray-300 mt-0.5">{formatDate(rider.created_at)}</p>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-5 py-4">
                         <div>
