@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 
 interface KycRider {
@@ -145,7 +146,12 @@ export function KycTable({ riders, readOnly = false }: KycTableProps) {
             {rows.map((rider) => (
               <tr key={rider.id} className="hover:bg-gray-50/50 align-top">
                 <td className="px-5 py-4">
-                  <p className="font-medium text-gray-900">{rider.users?.full_name ?? '—'}</p>
+                  <Link
+                    href={`/dashboard/kyc/${rider.id}`}
+                    className="font-medium text-gray-900 hover:text-orange-500 transition"
+                  >
+                    {rider.users?.full_name ?? '—'}
+                  </Link>
                   <p className="text-xs text-gray-400 mt-0.5">{rider.users?.email}</p>
                   {rider.users?.phone && <p className="text-xs text-gray-400">{rider.users.phone}</p>}
                   {rider.admin_question && (

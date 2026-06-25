@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import {
+  sendKycApprovedEmail,
+  sendKycNeedsInfoEmail,
+  sendKycRejectedEmail,
+  sendKycBannedEmail,
+} from '@/lib/kyc-email'
 
 const VALID_ACTIONS = ['approve', 'request_changes', 'reject', 'ban'] as const
 type ReviewAction = (typeof VALID_ACTIONS)[number]
 
 export async function POST(request: Request) {
+  // Cookie-based client only for auth — DB ops use service-role below
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -30,15 +38,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'A reason is required for this action' }, { status: 400 })
   }
 
-  const { data: rider, error: fetchError } = await supabase
+  // Service-role client bypasses RLS — auth check above is the gate
+  const adminDb = createAdminClient()
+
+  const { data: rider, error: fetchError } = await adminDb
     .from('riders')
-    .select('user_id')
+    .select('user_id, users!riders_user_id_fkey(email, full_name)')
     .eq('id', riderId)
     .single()
 
   if (fetchError || !rider) {
     return NextResponse.json({ error: 'Rider not found' }, { status: 404 })
   }
+
+  const riderUser = rider.users as unknown as { email: string; full_name: string } | null
 
   let updatePayload: Record<string, unknown>
   let notificationTitle: string
@@ -86,14 +99,14 @@ export async function POST(request: Request) {
       break
   }
 
-  const { error } = await supabase
+  const { error } = await adminDb
     .from('riders')
     .update(updatePayload!)
     .eq('id', riderId)
 
   if (error) return NextResponse.json({ error: 'Update failed' }, { status: 500 })
 
-  await supabase.from('notifications').insert({
+  await adminDb.from('notifications').insert({
     user_id: rider.user_id,
     type: 'system',
     title: notificationTitle!,
@@ -101,13 +114,24 @@ export async function POST(request: Request) {
     is_read: false,
   })
 
-  await supabase.from('admin_audit_logs').insert({
+  await adminDb.from('admin_audit_logs').insert({
     actor_id: user.id,
     action: `kyc.${action}`,
     target_type: 'rider',
     target_id: riderId,
     after_data: { reason: reason ?? null },
   })
+
+  // Fire-and-forget email — never blocks the response
+  if (riderUser) {
+    const { email, full_name } = riderUser
+    switch (action as ReviewAction) {
+      case 'approve':         sendKycApprovedEmail(email, full_name);                     break
+      case 'request_changes': sendKycNeedsInfoEmail(email, full_name, reason.trim());     break
+      case 'reject':          sendKycRejectedEmail(email, full_name, reason?.trim());     break
+      case 'ban':             sendKycBannedEmail(email, full_name);                       break
+    }
+  }
 
   return NextResponse.json({ success: true })
 }
