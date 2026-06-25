@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { PRICING } from '@sendit/constants'
+import { checkPaystackInitRate } from '@/lib/rate-limit'
 
 const initializeSchema = z.object({
   orderId: z.string().uuid('Invalid order ID'),
@@ -17,6 +18,11 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkPaystackInitRate(user.id)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
     const body = await request.json()

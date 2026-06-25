@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
+import { checkPaystackVerifyRate } from '@/lib/rate-limit'
 
 const verifySchema = z.object({
   reference: z.string().min(1, 'Reference required'),
@@ -18,6 +19,11 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkPaystackVerifyRate(user.id)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
     const body = await request.json()

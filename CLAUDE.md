@@ -20,6 +20,7 @@ GitHub: https://github.com/DataByOlabiyi/sendit
 | Payments | Paystack (NGN, kobo amounts) |
 | Maps | Google Maps API (degrades gracefully without key) |
 | Deployment | Vercel (two projects: `apps/web`, `apps/admin`) |
+| Error Monitoring | Sentry (@sentry/nextjs, separate DSN per app) |
 
 ---
 
@@ -61,6 +62,8 @@ Any change touching the following areas requires explicit review and sign-off be
 
 6. **Admin Privilege** — the `handle_new_user` trigger only allows `'customer'` or `'rider'` roles via signup metadata. Never allow `'admin'` through a client-facing path.
 
+7. **Rate Limiting** — entry points: `apps/web/src/lib/rate-limit.ts` (Upstash Redis). Never rate-limit the Paystack webhook route (`/api/paystack/webhook`) — Paystack servers are the caller and have no user session. New limiters must key on authenticated user ID, not IP (Nigerian mobile NAT makes IP-based limits unreliable).
+
 ---
 
 ## Regression-Sensitive Paths
@@ -84,6 +87,7 @@ Changes anywhere near these flows require manual smoke-test confirmation (or aut
 - **Shared package changes** must not break either `apps/web` or `apps/admin` — run `pnpm turbo type-check` after every shared package edit.
 - **New migrations** go in `supabase/migrations/` with a timestamp prefix. Never edit an already-applied migration.
 - **No comments that describe what the code does.** Only add a comment when the *why* is non-obvious (hidden constraint, workaround, subtle invariant).
+- **New DB indexes** go in a dedicated migration file with timestamp prefix. Always use `CREATE INDEX IF NOT EXISTS`; never edit a prior migration to add an index.
 
 ---
 

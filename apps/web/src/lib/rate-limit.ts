@@ -9,7 +9,12 @@ const LOCKOUT_TTL_SECONDS = 900  // 15 minutes
 function createLimiters() {
   const url = process.env.UPSTASH_REDIS_REST_URL
   const token = process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) return null
+  if (!url || !token) {
+    if (process.env.NODE_ENV === 'production') {
+      console.warn('[sendit/rate-limit] Upstash credentials absent — all rate limiters disabled')
+    }
+    return null
+  }
 
   const redis = new Redis({ url, token })
   return {
@@ -38,6 +43,24 @@ function createLimiters() {
       limiter: Ratelimit.slidingWindow(3, '10 m'),
       prefix: 'rl:forgot:email',
     }),
+    // 5 booking submissions per user per minute
+    bookingByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, '1 m'),
+      prefix: 'rl:book:user',
+    }),
+    // 5 Paystack initialize requests per user per minute
+    paystackInitByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, '1 m'),
+      prefix: 'rl:psinit:user',
+    }),
+    // 10 Paystack verify requests per user per minute
+    paystackVerifyByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '1 m'),
+      prefix: 'rl:psverify:user',
+    }),
   }
 }
 
@@ -61,6 +84,24 @@ export async function checkRegisterRate(ip: string): Promise<boolean> {
 export async function checkForgotRate(email: string): Promise<boolean> {
   if (!limiters) return true
   const { success } = await limiters.forgotByEmail.limit(email.toLowerCase())
+  return success
+}
+
+export async function checkBookingRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  const { success } = await limiters.bookingByUser.limit(userId)
+  return success
+}
+
+export async function checkPaystackInitRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  const { success } = await limiters.paystackInitByUser.limit(userId)
+  return success
+}
+
+export async function checkPaystackVerifyRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  const { success } = await limiters.paystackVerifyByUser.limit(userId)
   return success
 }
 

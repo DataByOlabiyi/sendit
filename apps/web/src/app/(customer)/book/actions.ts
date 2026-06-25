@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { calculatePricing, haversineDistance } from '@sendit/utils'
 import { createOrderSchema } from '@sendit/validations'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
+import { checkBookingRate } from '@/lib/rate-limit'
 import type { PackageSize } from '@sendit/types'
 
 
@@ -15,6 +16,9 @@ export async function createOrderAction(data: unknown) {
   } = await supabase.auth.getUser()
 
   if (!user) return { error: 'Not authenticated' }
+
+  const allowed = await checkBookingRate(user.id)
+  if (!allowed) return { error: 'Too many requests. Please wait a moment.' }
 
   // Server-side validation — never trust client-supplied data
   const parsed = createOrderSchema.safeParse(data)

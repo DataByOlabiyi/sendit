@@ -1,4 +1,11 @@
 export async function register() {
+  if (process.env.NEXT_RUNTIME === 'nodejs') {
+    await import('../sentry.server.config')
+  }
+  if (process.env.NEXT_RUNTIME === 'edge') {
+    await import('../sentry.edge.config')
+  }
+
   // Only validate on the Node.js server runtime (not edge, not client)
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
 
