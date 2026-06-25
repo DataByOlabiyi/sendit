@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { RidersTable } from '@/components/riders/riders-table'
 
 export const metadata: Metadata = { title: 'Riders' }
 
 export default async function RidersPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: riders } = await supabase
     .from('riders')

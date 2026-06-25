@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { KycTable } from '@/components/kyc/kyc-table'
 
 export const metadata: Metadata = { title: 'KYC Review' }
 
 export default async function KycPage() {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
 
   const { data: riders } = await supabase
     .from('riders')
