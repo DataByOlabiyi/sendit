@@ -20,8 +20,12 @@ const typeIcons: Record<string, string> = {
 }
 
 function getDeepLink(notification: Notification, userRole: 'customer' | 'rider'): string | null {
-  const data = notification.data as Record<string, string> | null
-  const orderId = data?.order_id
+  const data = notification.data as Record<string, unknown> | null
+  const orderId = data?.order_id as string | undefined
+
+  if (notification.type === 'system' && data?.kyc && userRole === 'rider') {
+    return '/rider/onboarding'
+  }
 
   if (!orderId) return null
 

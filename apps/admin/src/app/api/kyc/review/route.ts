@@ -111,6 +111,7 @@ export async function POST(request: Request) {
     type: 'system',
     title: notificationTitle!,
     body: notificationBody!,
+    data: { kyc: true },
     is_read: false,
   })
 
