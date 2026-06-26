@@ -209,10 +209,19 @@ export async function respondToAdminKycRequestAction(input: {
   note?: string
   licenseStoragePath?: string
   vehicleStoragePath?: string
+  bvn?: string
+  nin?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not authenticated' }
+
+  if (input.bvn !== undefined && !/^\d{11}$/.test(input.bvn)) {
+    return { error: 'BVN must be exactly 11 digits' }
+  }
+  if (input.nin !== undefined && !/^\d{11}$/.test(input.nin)) {
+    return { error: 'NIN must be exactly 11 digits' }
+  }
 
   const admin = createAdminClient()
 
@@ -233,6 +242,8 @@ export async function respondToAdminKycRequestAction(input: {
 
   if (input.licenseStoragePath) updatePayload.license_doc_url = input.licenseStoragePath
   if (input.vehicleStoragePath) updatePayload.vehicle_doc_url = input.vehicleStoragePath
+  if (input.bvn) { updatePayload.bvn = input.bvn; updatePayload.kyc_status = 'submitted' }
+  if (input.nin) { updatePayload.nin = input.nin; updatePayload.kyc_status = 'submitted' }
 
   const { error } = await admin
     .from('riders')
@@ -240,7 +251,10 @@ export async function respondToAdminKycRequestAction(input: {
     .eq('user_id', user.id)
     .eq('status', 'needs_info')
 
-  if (error) return { error: 'Failed to submit your response' }
+  if (error) {
+    if (error.code === '23505') return { error: 'This BVN or NIN is already linked to another account' }
+    return { error: 'Failed to submit your response' }
+  }
 
   revalidatePath('/rider/onboarding')
   revalidatePath('/rider/dashboard')

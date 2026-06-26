@@ -96,7 +96,11 @@ export default async function RiderOnboardingPage() {
             <p className="text-sm text-gray-500 mt-1">Our team needs a bit more from you before we can proceed</p>
           </div>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <NeedsInfoForm adminQuestion={rider!.admin_question!} />
+            <NeedsInfoForm
+              adminQuestion={rider!.admin_question!}
+              existingBvn={rider!.bvn ?? undefined}
+              existingNin={rider!.nin ?? undefined}
+            />
           </div>
         </div>
       </div>

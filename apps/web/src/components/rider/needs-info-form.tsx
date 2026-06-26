@@ -72,8 +72,19 @@ function DocUploadButton({
   )
 }
 
-export function NeedsInfoForm({ adminQuestion }: { adminQuestion: string }) {
+export function NeedsInfoForm({
+  adminQuestion,
+  existingBvn,
+  existingNin,
+}: {
+  adminQuestion: string
+  existingBvn?: string
+  existingNin?: string
+}) {
   const [note, setNote] = useState('')
+  const [bvn, setBvn] = useState(existingBvn ?? '')
+  const [nin, setNin] = useState(existingNin ?? '')
+  const [identityError, setIdentityError] = useState<string | null>(null)
   const [licenseDoc, setLicenseDoc] = useState<DocState>(EMPTY_DOC)
   const [vehicleDoc, setVehicleDoc] = useState<DocState>(EMPTY_DOC)
   const [isLoading, setIsLoading] = useState(false)
@@ -99,6 +110,17 @@ export function NeedsInfoForm({ adminQuestion }: { adminQuestion: string }) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (bvn && !/^\d{11}$/.test(bvn)) {
+      setIdentityError('BVN must be exactly 11 digits')
+      return
+    }
+    if (nin && !/^\d{11}$/.test(nin)) {
+      setIdentityError('NIN must be exactly 11 digits')
+      return
+    }
+    setIdentityError(null)
+
     setIsLoading(true)
     try {
       const uploadTasks: Promise<unknown>[] = []
@@ -114,6 +136,8 @@ export function NeedsInfoForm({ adminQuestion }: { adminQuestion: string }) {
         note: note.trim() || undefined,
         licenseStoragePath: licenseDoc.storagePath ?? undefined,
         vehicleStoragePath: vehicleDoc.storagePath ?? undefined,
+        bvn: bvn.trim() || undefined,
+        nin: nin.trim() || undefined,
       })
 
       if (result.error) {
@@ -136,6 +160,38 @@ export function NeedsInfoForm({ adminQuestion }: { adminQuestion: string }) {
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Admin message</p>
         <p className="text-sm text-blue-800 leading-relaxed">{adminQuestion}</p>
+      </div>
+
+      {/* Identity details */}
+      <div className="pt-2 border-t border-gray-100 space-y-3">
+        <p className="text-sm font-semibold text-gray-900">
+          Identity details <span className="text-gray-400 font-normal">(optional — update if requested)</span>
+        </p>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">BVN</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={11}
+            value={bvn}
+            onChange={(e) => { setBvn(e.target.value.replace(/\D/g, '')); setIdentityError(null) }}
+            placeholder="11-digit Bank Verification Number"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">NIN</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            maxLength={11}
+            value={nin}
+            onChange={(e) => { setNin(e.target.value.replace(/\D/g, '')); setIdentityError(null) }}
+            placeholder="11-digit National Identification Number"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+          />
+        </div>
+        {identityError && <p className="text-xs text-red-500">{identityError}</p>}
       </div>
 
       {/* Rider's note */}
