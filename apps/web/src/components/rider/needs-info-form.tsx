@@ -8,6 +8,14 @@ import {
   uploadRiderDocToStorageAction,
   uploadRiderDocumentAction,
 } from '@/app/rider/profile-actions'
+import { riderProfileSchema } from '@sendit/validations'
+
+const VEHICLE_TYPES = [
+  { value: 'bicycle',    label: '🚲 Bicycle' },
+  { value: 'motorcycle', label: '🏍️ Motorcycle' },
+  { value: 'car',        label: '🚗 Car' },
+  { value: 'van',        label: '🚐 Van' },
+] as const
 
 interface DocState {
   file: File | null
@@ -76,15 +84,28 @@ export function NeedsInfoForm({
   adminQuestion,
   existingBvn,
   existingNin,
+  existingVehicleType,
+  existingVehiclePlate,
+  existingVehicleModel,
+  existingLicenseNumber,
 }: {
   adminQuestion: string
   existingBvn?: string
   existingNin?: string
+  existingVehicleType?: string
+  existingVehiclePlate?: string
+  existingVehicleModel?: string
+  existingLicenseNumber?: string
 }) {
   const [note, setNote] = useState('')
   const [bvn, setBvn] = useState(existingBvn ?? '')
   const [nin, setNin] = useState(existingNin ?? '')
   const [identityError, setIdentityError] = useState<string | null>(null)
+  const [vehicleType, setVehicleType] = useState(existingVehicleType ?? 'motorcycle')
+  const [vehiclePlate, setVehiclePlate] = useState(existingVehiclePlate ?? '')
+  const [vehicleModel, setVehicleModel] = useState(existingVehicleModel ?? '')
+  const [licenseNumber, setLicenseNumber] = useState(existingLicenseNumber ?? '')
+  const [profileError, setProfileError] = useState<string | null>(null)
   const [licenseDoc, setLicenseDoc] = useState<DocState>(EMPTY_DOC)
   const [vehicleDoc, setVehicleDoc] = useState<DocState>(EMPTY_DOC)
   const [isLoading, setIsLoading] = useState(false)
@@ -110,6 +131,18 @@ export function NeedsInfoForm({
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    const profileParsed = riderProfileSchema.safeParse({
+      vehicle_type: vehicleType,
+      vehicle_plate: vehiclePlate,
+      vehicle_model: vehicleModel,
+      license_number: licenseNumber,
+    })
+    if (!profileParsed.success) {
+      setProfileError(profileParsed.error.issues[0]?.message ?? 'Check your vehicle & license details')
+      return
+    }
+    setProfileError(null)
 
     if (bvn && !/^\d{11}$/.test(bvn)) {
       setIdentityError('BVN must be exactly 11 digits')
@@ -138,6 +171,7 @@ export function NeedsInfoForm({
         vehicleStoragePath: vehicleDoc.storagePath ?? undefined,
         bvn: bvn.trim() || undefined,
         nin: nin.trim() || undefined,
+        ...profileParsed.data,
       })
 
       if (result.error) {
@@ -160,6 +194,54 @@ export function NeedsInfoForm({
       <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
         <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-1">Admin message</p>
         <p className="text-sm text-blue-800 leading-relaxed">{adminQuestion}</p>
+      </div>
+
+      {/* Vehicle & license details */}
+      <div className="pt-2 border-t border-gray-100 space-y-3">
+        <p className="text-sm font-semibold text-gray-900">Vehicle & license details</p>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">Vehicle Type</label>
+          <select
+            value={vehicleType}
+            onChange={(e) => { setVehicleType(e.target.value); setProfileError(null) }}
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 bg-white"
+          >
+            {VEHICLE_TYPES.map(({ value, label }) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">Plate Number</label>
+          <input
+            type="text"
+            value={vehiclePlate}
+            onChange={(e) => { setVehiclePlate(e.target.value); setProfileError(null) }}
+            placeholder="e.g. ABC-123-XY"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">Vehicle Model</label>
+          <input
+            type="text"
+            value={vehicleModel}
+            onChange={(e) => { setVehicleModel(e.target.value); setProfileError(null) }}
+            placeholder="e.g. Honda CB500, Toyota Camry"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">License Number</label>
+          <input
+            type="text"
+            value={licenseNumber}
+            onChange={(e) => { setLicenseNumber(e.target.value); setProfileError(null) }}
+            placeholder="Driver's license number"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+          />
+        </div>
+        {profileError && <p className="text-xs text-red-500">{profileError}</p>}
       </div>
 
       {/* Identity details */}

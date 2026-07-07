@@ -211,6 +211,10 @@ export async function respondToAdminKycRequestAction(input: {
   vehicleStoragePath?: string
   bvn?: string
   nin?: string
+  vehicle_type?: string
+  vehicle_plate?: string
+  vehicle_model?: string
+  license_number?: string
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -221,6 +225,16 @@ export async function respondToAdminKycRequestAction(input: {
   }
   if (input.nin !== undefined && !/^\d{11}$/.test(input.nin)) {
     return { error: 'NIN must be exactly 11 digits' }
+  }
+
+  const profileParsed = riderProfileSchema.safeParse({
+    vehicle_type: input.vehicle_type,
+    vehicle_plate: input.vehicle_plate,
+    vehicle_model: input.vehicle_model,
+    license_number: input.license_number,
+  })
+  if (!profileParsed.success) {
+    return { error: profileParsed.error.issues[0]?.message ?? 'Invalid vehicle or license details' }
   }
 
   const admin = createAdminClient()
@@ -238,6 +252,7 @@ export async function respondToAdminKycRequestAction(input: {
     status:            'pending',
     admin_question:    null,
     resubmission_note: input.note?.trim() || null,
+    ...profileParsed.data,
   }
 
   if (input.licenseStoragePath) updatePayload.license_doc_url = input.licenseStoragePath

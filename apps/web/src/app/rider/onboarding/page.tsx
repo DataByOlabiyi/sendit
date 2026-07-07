@@ -100,6 +100,10 @@ export default async function RiderOnboardingPage() {
               adminQuestion={rider!.admin_question!}
               existingBvn={rider!.bvn ?? undefined}
               existingNin={rider!.nin ?? undefined}
+              existingVehicleType={rider!.vehicle_type ?? undefined}
+              existingVehiclePlate={rider!.vehicle_plate ?? undefined}
+              existingVehicleModel={rider!.vehicle_model ?? undefined}
+              existingLicenseNumber={rider!.license_number ?? undefined}
             />
           </div>
         </div>
