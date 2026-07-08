@@ -46,7 +46,7 @@ export default async function UserDetailPage({
     .reduce((sum, o) => sum + (o.total_fee ?? 0), 0)
 
   return (
-    <div className="px-6 py-8 max-w-4xl">
+    <div className="px-6 py-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link

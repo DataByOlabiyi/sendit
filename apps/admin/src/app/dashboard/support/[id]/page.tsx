@@ -37,7 +37,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   const customer = ticket.users as unknown as { full_name: string; email: string } | null
 
   return (
-    <div className="px-6 py-8 max-w-3xl">
+    <div className="px-6 py-8 max-w-3xl mx-auto">
       <div className="mb-6">
         <a href="/dashboard/support" className="text-sm text-orange-600 hover:text-orange-700 transition mb-3 inline-block">
           ← Back to tickets

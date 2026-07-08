@@ -116,7 +116,7 @@ export default async function KycRiderDetailPage({
   const riderUser = rider.users as { full_name: string; email: string; phone: string | null } | null
 
   return (
-    <div className="px-6 py-8 max-w-4xl">
+    <div className="px-6 py-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link

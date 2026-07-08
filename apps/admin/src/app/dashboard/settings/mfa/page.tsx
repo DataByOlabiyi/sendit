@@ -12,7 +12,7 @@ export default async function MfaSettingsPage() {
   const isEnrolled = !!totpFactor && totpFactor.status === 'verified'
 
   return (
-    <div className="px-6 py-8 max-w-2xl">
+    <div className="px-6 py-8 max-w-2xl mx-auto">
       <div className="mb-2 flex items-center gap-2">
         <a href="/dashboard/settings" className="text-sm text-gray-500 hover:text-gray-700 transition">
           Settings

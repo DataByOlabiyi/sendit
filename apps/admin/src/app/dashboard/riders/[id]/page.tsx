@@ -122,7 +122,7 @@ export default async function RiderDetailPage({
   } | null
 
   return (
-    <div className="px-6 py-8 max-w-4xl">
+    <div className="px-6 py-8 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <div className="mb-6">
         <Link
