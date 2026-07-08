@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { formatRelativeTime } from '@sendit/utils'
 
 export const metadata: Metadata = { title: 'Audit Logs' }
@@ -24,7 +24,7 @@ export default async function AuditLogsPage({
   searchParams: Promise<{ action?: string; page?: string; pageSize?: string }>
 }) {
   const { action, page, pageSize: pageSizeParam } = await searchParams
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const pageNum = Math.max(1, parseInt(page ?? '1', 10))
   const pageSize = PAGE_SIZE_OPTIONS.includes(parseInt(pageSizeParam ?? '', 10))
     ? parseInt(pageSizeParam!, 10)
