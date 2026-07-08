@@ -18,6 +18,30 @@ const ACTION_COLORS: Record<string, string> = {
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100]
 
+function ChangeBlock({ data, className }: { data: unknown; className: string }) {
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+    return (
+      <pre className={`p-2 rounded text-xs font-mono max-w-xs overflow-x-auto whitespace-pre-wrap ${className}`}>
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    )
+  }
+  return (
+    <div className={`p-2 rounded text-xs max-w-xs overflow-x-auto space-y-0.5 ${className}`}>
+      {Object.entries(data as Record<string, unknown>).map(([key, value]) => (
+        <div key={key}>
+          <span className="font-semibold">{key}:</span>{' '}
+          {value !== null && typeof value === 'object' ? (
+            <pre className="inline font-mono whitespace-pre-wrap">{JSON.stringify(value, null, 2)}</pre>
+          ) : (
+            <span className="font-mono">{String(value)}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default async function AuditLogsPage({
   searchParams,
 }: {
@@ -147,14 +171,10 @@ export default async function AuditLogsPage({
                           <summary className="text-xs text-orange-600 hover:text-orange-700">View diff</summary>
                           <div className="mt-2 space-y-1">
                             {log.before_data && (
-                              <div className="p-2 bg-red-50 rounded text-xs font-mono text-red-700 max-w-xs overflow-x-auto">
-                                {JSON.stringify(log.before_data, null, 2)}
-                              </div>
+                              <ChangeBlock data={log.before_data} className="bg-red-50 text-red-700" />
                             )}
                             {log.after_data && (
-                              <div className="p-2 bg-green-50 rounded text-xs font-mono text-green-700 max-w-xs overflow-x-auto">
-                                {JSON.stringify(log.after_data, null, 2)}
-                              </div>
+                              <ChangeBlock data={log.after_data} className="bg-green-50 text-green-700" />
                             )}
                           </div>
                         </details>
