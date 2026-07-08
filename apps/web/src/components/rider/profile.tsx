@@ -12,6 +12,7 @@ import {
   riderKycSchema, type RiderKycInput,
 } from '@sendit/validations'
 import { createClient } from '@/lib/supabase/client'
+import { PasswordInput } from '@sendit/ui'
 import type { User, Rider } from '@sendit/types'
 
 const NIGERIAN_BANKS = [
@@ -460,9 +461,8 @@ export function RiderProfile({ profile, rider, wallet }: RiderProfileProps) {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 BVN <span className="text-gray-400 font-normal">(Bank Verification Number)</span>
               </label>
-              <input
+              <PasswordInput
                 {...kycForm.register('bvn')}
-                type="password"
                 inputMode="numeric"
                 maxLength={11}
                 placeholder="11-digit BVN"
@@ -477,9 +477,8 @@ export function RiderProfile({ profile, rider, wallet }: RiderProfileProps) {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 NIN <span className="text-gray-400 font-normal">(National Identity Number)</span>
               </label>
-              <input
+              <PasswordInput
                 {...kycForm.register('nin')}
-                type="password"
                 inputMode="numeric"
                 maxLength={11}
                 placeholder="11-digit NIN"

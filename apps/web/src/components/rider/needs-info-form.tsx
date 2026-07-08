@@ -9,6 +9,7 @@ import {
   uploadRiderDocumentAction,
 } from '@/app/rider/profile-actions'
 import { riderProfileSchema } from '@sendit/validations'
+import { PasswordInput } from '@sendit/ui'
 
 const VEHICLE_TYPES = [
   { value: 'bicycle',    label: '🚲 Bicycle' },
@@ -251,8 +252,7 @@ export function NeedsInfoForm({
         </p>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1.5">BVN</label>
-          <input
-            type="password"
+          <PasswordInput
             inputMode="numeric"
             maxLength={11}
             value={bvn}
@@ -263,8 +263,7 @@ export function NeedsInfoForm({
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1.5">NIN</label>
-          <input
-            type="password"
+          <PasswordInput
             inputMode="numeric"
             maxLength={11}
             value={nin}

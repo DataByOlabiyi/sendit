@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { resetPasswordSchema, type ResetPasswordInput } from '@sendit/validations'
+import { PasswordInput } from '@sendit/ui'
 import { resetPasswordAction } from '@/app/auth/actions'
 
 export function ResetPasswordForm() {
@@ -42,10 +43,9 @@ export function ResetPasswordForm() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
             New password
           </label>
-          <input
+          <PasswordInput
             {...register('password')}
             id="password"
-            type="password"
             autoComplete="new-password"
             placeholder="Min. 12 characters"
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
@@ -59,10 +59,9 @@ export function ResetPasswordForm() {
           <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1.5">
             Confirm new password
           </label>
-          <input
+          <PasswordInput
             {...register('confirm_password')}
             id="confirm_password"
-            type="password"
             autoComplete="new-password"
             placeholder="••••••••"
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"

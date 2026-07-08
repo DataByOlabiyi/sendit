@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { loginSchema, type LoginInput } from '@sendit/validations'
+import { PasswordInput } from '@sendit/ui'
 import { adminLoginAction } from '@/app/auth/actions'
 
 export function AdminLoginForm() {
@@ -64,10 +65,9 @@ export function AdminLoginForm() {
           <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1.5">
             Password
           </label>
-          <input
+          <PasswordInput
             {...register('password')}
             id="password"
-            type="password"
             autoComplete="current-password"
             placeholder="••••••••"
             className="w-full px-4 py-3 rounded-xl bg-gray-800 border border-gray-700 text-white text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-600"

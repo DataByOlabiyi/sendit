@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { registerSchema, type RegisterInput } from '@sendit/validations'
+import { PasswordInput } from '@sendit/ui'
 import { registerAction } from '@/app/auth/actions'
 import { createClient } from '@/lib/supabase/client'
 
@@ -17,29 +18,11 @@ interface RegisterFormProps {
   referralCode?: string
 }
 
-function EyeIcon({ open }: { open: boolean }) {
-  if (open) {
-    return (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-    )
-  }
-  return (
-    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-    </svg>
-  )
-}
-
 export function RegisterForm({ initialRole = 'customer', skipRolePicker = false, referralCode }: RegisterFormProps) {
   const [step, setStep] = useState<1 | 2 | 3>(skipRolePicker ? 2 : 1)
   const [selectedRole, setSelectedRole] = useState<Role>(initialRole)
   const [isLoading, setIsLoading] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [resending, setResending] = useState(false)
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<RegisterInput>({
@@ -306,24 +289,13 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false,
           <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1.5">
             Password
           </label>
-          <div className="relative">
-            <input
-              {...register('password')}
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder="Min. 12 characters"
-              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-              tabIndex={-1}
-            >
-              <EyeIcon open={showPassword} />
-            </button>
-          </div>
+          <PasswordInput
+            {...register('password')}
+            id="password"
+            autoComplete="new-password"
+            placeholder="Min. 12 characters"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+          />
           {errors.password && <p className="mt-1.5 text-xs text-red-500">{errors.password.message}</p>}
         </div>
 
@@ -331,24 +303,13 @@ export function RegisterForm({ initialRole = 'customer', skipRolePicker = false,
           <label htmlFor="confirm_password" className="block text-sm font-medium text-gray-700 mb-1.5">
             Confirm password
           </label>
-          <div className="relative">
-            <input
-              {...register('confirm_password')}
-              id="confirm_password"
-              type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              placeholder="••••••••"
-              className="w-full px-4 py-3 pr-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-              tabIndex={-1}
-            >
-              <EyeIcon open={showConfirmPassword} />
-            </button>
-          </div>
+          <PasswordInput
+            {...register('confirm_password')}
+            id="confirm_password"
+            autoComplete="new-password"
+            placeholder="••••••••"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+          />
           {errors.confirm_password && (
             <p className="mt-1.5 text-xs text-red-500">{errors.confirm_password.message}</p>
           )}
