@@ -45,6 +45,9 @@ npx web-push generate-vapid-keys
 | `NEXT_PUBLIC_APP_URL` | Admin URL e.g. https://admin.sendit.com |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN for admin app |
 | `SENTRY_AUTH_TOKEN` | Sentry auth token for source maps upload |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | Same VAPID key pair as apps/web |
+| `VAPID_PRIVATE_KEY` | Same VAPID key pair as apps/web (server only) |
+| `VAPID_SUBJECT` | mailto: or https: contact for VAPID |
 
 ---
 

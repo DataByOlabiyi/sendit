@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@sendit/notifications'
+import { formatCurrency } from '@sendit/utils'
 
 export async function POST(request: Request) {
   try {
@@ -25,7 +28,7 @@ export async function POST(request: Request) {
       .select(`
         id, amount, status,
         riders!inner(
-          id, bank_account_number, bank_code, bank_name, paystack_recipient_code
+          id, user_id, bank_account_number, bank_code, bank_name, paystack_recipient_code
         )
       `)
       .eq('id', payoutId)
@@ -142,6 +145,25 @@ export async function POST(request: Request) {
       target_id: payoutId,
       after_data: { transfer_code: transferData.data.transfer_code, reference: transferRef },
     })
+
+    const adminDb = createAdminClient()
+    const payoutTitle = 'Payout Sent 💸'
+    const payoutBody = `${formatCurrency(payout.amount)} has been sent to your bank account.`
+
+    await adminDb.from('notifications').insert({
+      user_id: rider.user_id,
+      type: 'system',
+      title: payoutTitle,
+      body: payoutBody,
+      is_read: false,
+    })
+
+    sendPushToUsers(adminDb, [rider.user_id], {
+      title: payoutTitle,
+      body: payoutBody,
+      url: '/rider/earnings',
+      tag: `payout-${payoutId}`,
+    }).catch(console.error)
 
     return NextResponse.json({ success: true, transferCode: transferData.data.transfer_code })
   } catch (err) {

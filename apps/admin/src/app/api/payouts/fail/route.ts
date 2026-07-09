@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@sendit/notifications'
+import { formatCurrency } from '@sendit/utils'
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +25,7 @@ export async function POST(request: Request) {
 
     const { data: payout } = await supabase
       .from('rider_payouts')
-      .select('id, status, rider_id, amount')
+      .select('id, status, rider_id, amount, riders!inner(user_id)')
       .eq('id', payoutId)
       .single()
 
@@ -49,6 +52,28 @@ export async function POST(request: Request) {
       target_id: payoutId,
       after_data: { reason },
     })
+
+    const riderUserId = (Array.isArray(payout.riders) ? payout.riders[0] : payout.riders)?.user_id
+    if (riderUserId) {
+      const adminDb = createAdminClient()
+      const failTitle = 'Payout Failed'
+      const failBody = `Your ${formatCurrency(payout.amount)} payout could not be completed. The funds have been returned to your wallet.`
+
+      await adminDb.from('notifications').insert({
+        user_id: riderUserId,
+        type: 'system',
+        title: failTitle,
+        body: failBody,
+        is_read: false,
+      })
+
+      sendPushToUsers(adminDb, [riderUserId], {
+        title: failTitle,
+        body: failBody,
+        url: '/rider/earnings',
+        tag: `payout-${payoutId}`,
+      }).catch(console.error)
+    }
 
     return NextResponse.json({ success: true })
   } catch (err) {

@@ -37,14 +37,20 @@ export function NewTicketForm({ orders, userId }: NewTicketFormProps) {
     setIsSubmitting(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('support_tickets').insert({
+      const { data: created, error } = await supabase.from('support_tickets').insert({
         user_id: userId,
         category: data.category,
         subject: data.subject,
         description: data.description,
         order_id: data.order_id || null,
-      })
+      }).select('id').single()
       if (error) throw error
+
+      fetch('/api/notify/ticket-created', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticketId: created.id }),
+      }).catch(() => {})
 
       toast.success('Ticket submitted — we\'ll respond within 24 hours')
       reset()

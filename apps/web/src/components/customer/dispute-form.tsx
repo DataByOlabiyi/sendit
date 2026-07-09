@@ -66,7 +66,7 @@ export function DisputeForm({ orderId, riderId, onSuccess, onCancel }: DisputeFo
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { toast.error('Not authenticated'); return }
-      const { error } = await supabase.from('disputes').insert({
+      const { data: created, error } = await supabase.from('disputes').insert({
         order_id: orderId,
         customer_id: user.id,
         rider_id: riderId,
@@ -74,11 +74,16 @@ export function DisputeForm({ orderId, riderId, onSuccess, onCancel }: DisputeFo
         description: description.trim(),
         evidence_urls: evidenceUrls,
         status: 'open',
-      })
+      }).select('id').single()
       if (error) {
         toast.error('Failed to submit dispute')
         return
       }
+      fetch('/api/notify/dispute-created', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disputeId: created.id }),
+      }).catch(() => {})
       toast.success('Dispute submitted. Our team will review within 24 hours.')
       onSuccess?.()
     } catch {

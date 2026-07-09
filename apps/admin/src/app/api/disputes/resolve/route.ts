@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@sendit/notifications'
 
 export async function POST(request: Request) {
   try {
@@ -119,6 +121,13 @@ export async function POST(request: Request) {
         body: notifBody,
         data: { dispute_id: disputeId, order_id: dispute.order_id },
       })
+
+      sendPushToUsers(createAdminClient(), [dispute.customer_id], {
+        title: notifTitle,
+        body: notifBody,
+        url: `/orders/${dispute.order_id}`,
+        tag: `dispute-${disputeId}`,
+      }).catch(console.error)
     }
 
     await supabase.from('admin_audit_logs').insert({

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
+import { broadcastNotificationAction } from '@/app/dashboard/notifications/actions'
 
 type Audience = 'all' | 'customers' | 'riders'
 
@@ -29,41 +29,20 @@ export function BroadcastForm() {
 
     setIsLoading(true)
     try {
-      const supabase = createClient()
+      const result = await broadcastNotificationAction({ audience, title: title.trim(), body: body.trim() })
 
-      let query = supabase.from('users').select('id')
-      if (audience === 'customers') query = query.eq('role', 'customer')
-      if (audience === 'riders') query = query.eq('role', 'rider')
-
-      const { data: users } = await query
-
-      if (!users || users.length === 0) {
-        toast.error('No users found for this audience')
-        return
-      }
-
-      const notifications = users.map((u) => ({
-        user_id: u.id,
-        type: 'system' as const,
-        title: title.trim(),
-        body: body.trim(),
-        is_read: false,
-      }))
-
-      const { error } = await supabase.from('notifications').insert(notifications)
-
-      if (error) {
-        toast.error('Failed to send notifications')
+      if (result.error) {
+        toast.error(result.error)
       } else {
-        const result: BroadcastResult = {
+        const record: BroadcastResult = {
           audience,
-          count: users.length,
+          count: result.count!,
           title: title.trim(),
           sentAt: new Date().toISOString(),
         }
-        setLastResult(result)
-        setHistory((prev) => [result, ...prev].slice(0, 10))
-        toast.success(`Sent to ${users.length} ${audience === 'all' ? 'users' : audience}`)
+        setLastResult(record)
+        setHistory((prev) => [record, ...prev].slice(0, 10))
+        toast.success(`Sent to ${result.count} ${audience === 'all' ? 'users' : audience}`)
         setTitle('')
         setBody('')
       }

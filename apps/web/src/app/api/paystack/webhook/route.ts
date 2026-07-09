@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
-import { sendPushToUsers } from '@/lib/push'
+import { sendPushToUsers } from '@sendit/notifications'
 
 // Paystack signs every webhook with HMAC-SHA512 using the secret key.
 // We must verify this signature before trusting the payload.
@@ -108,12 +108,51 @@ export async function POST(request: Request) {
       .eq('id', payment.order_id)
 
     // Notify the customer that their refund was processed
-    sendPushToUsers([payment.customer_id], {
+    sendPushToUsers(admin, [payment.customer_id], {
       title: 'Refund Processed',
       body: 'Your refund has been processed and should appear within 5–10 business days.',
       url: `/orders/${payment.order_id}`,
       tag: `refund-${payment.order_id}`,
     }).catch(console.error)
+  }
+
+  // charge.failed — let the customer know their payment didn't go through,
+  // and alert admins so a stuck order doesn't go unnoticed.
+  if (event.event === 'charge.failed') {
+    const data = event.data
+    const reference = data.reference as string | undefined
+    const metadata = (data.metadata ?? {}) as Record<string, unknown>
+    const orderId = metadata.orderId as string | undefined
+
+    if (reference) {
+      const { data: payment } = await admin
+        .from('payments')
+        .select('order_id, customer_id')
+        .eq('paystack_reference', reference)
+        .maybeSingle()
+
+      const customerId = payment?.customer_id
+      const failedOrderId = payment?.order_id ?? orderId
+
+      if (customerId && failedOrderId) {
+        sendPushToUsers(admin, [customerId], {
+          title: 'Payment Failed',
+          body: 'Your payment could not be processed. Please try again to complete your order.',
+          url: `/orders/${failedOrderId}`,
+          tag: `payment-failed-${failedOrderId}`,
+        }).catch(console.error)
+      }
+
+      const { data: admins } = await admin.from('users').select('id').eq('role', 'admin')
+      if (admins?.length && failedOrderId) {
+        sendPushToUsers(admin, admins.map((a) => a.id), {
+          title: 'Payment Failure',
+          body: 'A customer payment failed to process.',
+          url: `/dashboard/payments`,
+          tag: `payment-failed-admin-${failedOrderId}`,
+        }).catch(console.error)
+      }
+    }
   }
 
   return NextResponse.json({ ok: true })

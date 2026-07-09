@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@sendit/notifications'
 import {
   sendKycApprovedEmail,
   sendKycNeedsInfoEmail,
@@ -114,6 +115,13 @@ export async function POST(request: Request) {
     data: { kyc: true },
     is_read: false,
   })
+
+  sendPushToUsers(adminDb, [rider.user_id], {
+    title: notificationTitle!,
+    body: notificationBody!,
+    url: '/rider/onboarding',
+    tag: 'kyc-decision',
+  }).catch(console.error)
 
   await adminDb.from('admin_audit_logs').insert({
     actor_id: user.id,

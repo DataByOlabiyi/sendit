@@ -26,6 +26,9 @@ importers:
       '@sendit/constants':
         specifier: workspace:*
         version: link:../../packages/constants
+      '@sendit/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@sendit/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -135,6 +138,9 @@ importers:
       '@sendit/constants':
         specifier: workspace:*
         version: link:../../packages/constants
+      '@sendit/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@sendit/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -204,9 +210,6 @@ importers:
       tailwind-merge:
         specifier: ^2.4.0
         version: 2.6.1
-      web-push:
-        specifier: ^3.6.7
-        version: 3.6.7
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -226,9 +229,6 @@ importers:
       '@types/react-dom':
         specifier: ^19
         version: 19.2.3(@types/react@19.2.16)
-      '@types/web-push':
-        specifier: ^3.6.3
-        version: 3.6.4
       autoprefixer:
         specifier: ^10.4.0
         version: 10.5.0(postcss@8.5.15)
@@ -250,10 +250,32 @@ importers:
 
   packages/constants: {}
 
+  packages/notifications:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      web-push:
+        specifier: ^3.6.7
+        version: 3.6.7
+    devDependencies:
+      '@supabase/supabase-js':
+        specifier: ^2.45.0
+        version: 2.107.0
+      '@types/react':
+        specifier: ^19
+        version: 19.2.16
+      '@types/web-push':
+        specifier: ^3.6.3
+        version: 3.6.4
+
   packages/types: {}
 
   packages/ui:
     dependencies:
+      '@sendit/notifications':
+        specifier: workspace:*
+        version: link:../notifications
       '@sendit/types':
         specifier: workspace:*
         version: link:../types

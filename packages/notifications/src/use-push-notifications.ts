@@ -22,7 +22,17 @@ export function usePushNotifications() {
       setPermission('unsupported')
       return
     }
-    setPermission(Notification.permission as PushPermission)
+    const current = Notification.permission as PushPermission
+    setPermission(current)
+
+    // A previous session may have already subscribed — reflect that instead
+    // of defaulting to "not subscribed" until the user clicks the button again.
+    if (current === 'granted') {
+      navigator.serviceWorker.ready
+        .then((registration) => registration.pushManager.getSubscription())
+        .then((sub) => setSubscribed(!!sub))
+        .catch(() => {})
+    }
   }, [])
 
   async function subscribe() {

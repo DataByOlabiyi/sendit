@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@sendit/utils'
 import { updateProfileSchema, type UpdateProfileInput } from '@sendit/validations'
 import { createClient } from '@/lib/supabase/client'
+import { PushNotificationToggle } from '@sendit/ui'
 import type { User } from '@sendit/types'
 
 interface ReferralReward {
@@ -377,6 +378,13 @@ export function ProfileForm({ profile, orderCount, addressCount, referralRewards
             )}
           </div>
         )}
+
+        {/* Notifications */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <h2 className="text-base font-semibold text-gray-900">Notifications</h2>
+          <p className="text-sm text-gray-500 mt-1 mb-5">Get alerted about order updates on this device</p>
+          <PushNotificationToggle />
+        </div>
 
         {/* Security */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { riderProfileSchema, riderKycSchema } from '@sendit/validations'
+import { notifyAdminsOfKycSubmission } from '@/lib/kyc-notify'
 
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/jpeg': 'image/jpeg',
@@ -162,6 +163,9 @@ export async function submitRiderKycAction(input: unknown) {
 
   if (error) return { error: 'Failed to save KYC information' }
 
+  const { data: profile } = await admin.from('users').select('full_name').eq('id', user.id).single()
+  notifyAdminsOfKycSubmission(profile?.full_name ?? 'A rider').catch(console.error)
+
   revalidatePath('/rider/onboarding')
   revalidatePath('/rider/profile')
   return { success: true }
@@ -270,6 +274,9 @@ export async function respondToAdminKycRequestAction(input: {
     if (error.code === '23505') return { error: 'This BVN or NIN is already linked to another account' }
     return { error: 'Failed to submit your response' }
   }
+
+  const { data: profile } = await admin.from('users').select('full_name').eq('id', user.id).single()
+  notifyAdminsOfKycSubmission(profile?.full_name ?? 'A rider').catch(console.error)
 
   revalidatePath('/rider/onboarding')
   revalidatePath('/rider/dashboard')

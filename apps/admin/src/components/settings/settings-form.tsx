@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { formatCurrency } from '@sendit/utils'
 import { saveSettingsAction } from '@/app/dashboard/settings/actions'
 import { createClient } from '@/lib/supabase/client'
+import { PushNotificationToggle } from '@sendit/ui'
 
 interface Settings {
   base_fee: number
@@ -198,6 +199,13 @@ export function SettingsForm({ initialSettings, adminProfile }: SettingsFormProp
           To apply new prices in Edge Functions, also update{' '}
           <code className="bg-blue-100 px-1 rounded">packages/constants/src/index.ts</code> and redeploy.
         </p>
+      </div>
+
+      {/* Notifications */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 className="text-base font-semibold text-gray-900">Notifications</h2>
+        <p className="text-sm text-gray-500 mt-1 mb-5">Get alerted about KYC submissions, disputes, tickets, and payment issues on this device</p>
+        <PushNotificationToggle />
       </div>
 
       {/* Security */}

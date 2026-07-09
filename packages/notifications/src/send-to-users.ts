@@ -1,13 +1,17 @@
-import { createAdminClient } from '@/lib/supabase/admin'
-import { sendPushNotification, type PushPayload } from '@/lib/push-notification-client'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { sendPushNotification, type PushPayload } from './push-sender'
 
 // Sends a Web Push notification to all active subscriptions for each userId.
 // Silently removes expired subscriptions (410 Gone) and continues to others.
-export async function sendPushToUsers(userIds: string[], payload: PushPayload): Promise<void> {
+// `admin` must be a service-role client (bypasses RLS to read across users).
+export async function sendPushToUsers(
+  admin: SupabaseClient,
+  userIds: string[],
+  payload: PushPayload,
+): Promise<void> {
   if (!userIds.length) return
   if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return
 
-  const admin = createAdminClient()
   const { data: subscriptions } = await admin
     .from('push_subscriptions')
     .select('id, user_id, endpoint, p256dh, auth')

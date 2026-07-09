@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { sendPushToUsers } from '@/lib/push'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendPushToUsers } from '@sendit/notifications'
 import type { OrderStatus } from '@sendit/types'
 
 // Valid forward-only state machine transitions a rider may initiate.
@@ -46,7 +47,7 @@ export async function acceptOrderAction(orderId: string) {
 
   if (error || !accepted) return { error: 'Failed to accept order. It may have been taken.' }
 
-  sendPushToUsers([accepted.customer_id], {
+  sendPushToUsers(createAdminClient(), [accepted.customer_id], {
     title: 'Rider on the way!',
     body: 'A rider has accepted your order and is heading to the pickup location.',
     url: `/orders/${orderId}`,
@@ -114,7 +115,7 @@ export async function advanceOrderStatusAction(orderId: string, status: OrderSta
   }
   const pushBody = pushMessages[status]
   if (pushBody) {
-    sendPushToUsers([updated.customer_id], {
+    sendPushToUsers(createAdminClient(), [updated.customer_id], {
       title: 'Order Update',
       body: pushBody,
       url: `/orders/${orderId}`,
@@ -193,7 +194,7 @@ export async function uploadProofOfDeliveryAction(orderId: string, imageUrl: str
 
   if (error || !delivered) return { error: 'Failed to complete delivery' }
 
-  sendPushToUsers([delivered.customer_id], {
+  sendPushToUsers(createAdminClient(), [delivered.customer_id], {
     title: 'Package Delivered!',
     body: 'Your delivery has been completed successfully.',
     url: `/orders/${orderId}`,

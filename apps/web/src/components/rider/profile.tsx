@@ -12,7 +12,8 @@ import {
   riderKycSchema, type RiderKycInput,
 } from '@sendit/validations'
 import { createClient } from '@/lib/supabase/client'
-import { PasswordInput } from '@sendit/ui'
+import { submitRiderKycAction } from '@/app/rider/profile-actions'
+import { PasswordInput, PushNotificationToggle } from '@sendit/ui'
 import type { User, Rider } from '@sendit/types'
 
 const NIGERIAN_BANKS = [
@@ -151,12 +152,11 @@ export function RiderProfile({ profile, rider, wallet }: RiderProfileProps) {
   async function saveKyc(data: RiderKycInput) {
     setKycLoading(true)
     try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('riders')
-        .update({ bvn: data.bvn, nin: data.nin, kyc_status: 'submitted' })
-        .eq('id', rider.id)
-      if (error) throw error
+      const result = await submitRiderKycAction(data)
+      if (result.error) {
+        toast.error(result.error)
+        return
+      }
       toast.success('KYC submitted for review')
     } catch {
       toast.error('Failed to submit KYC')
@@ -501,6 +501,13 @@ export function RiderProfile({ profile, rider, wallet }: RiderProfileProps) {
             </button>
           </form>
         )}
+      </div>
+
+      {/* Notifications */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-6">
+        <h2 className="text-base font-semibold text-gray-900">Notifications</h2>
+        <p className="text-sm text-gray-500 mt-1 mb-5">Get alerted about new deliveries and account updates on this device</p>
+        <PushNotificationToggle />
       </div>
 
       {/* Security */}
