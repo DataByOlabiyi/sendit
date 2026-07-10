@@ -102,16 +102,29 @@ export async function checkBookingRate(userId: string): Promise<boolean> {
   }
 }
 
+// Same non-security-critical classification as checkBookingRate above — an
+// Upstash outage must not block a customer from paying for an order already
+// created.
 export async function checkPaystackInitRate(userId: string): Promise<boolean> {
   if (!limiters) return true
-  const { success } = await limiters.paystackInitByUser.limit(userId)
-  return success
+  try {
+    const { success } = await limiters.paystackInitByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkPaystackInitRate failed, allowing request:', err)
+    return true
+  }
 }
 
 export async function checkPaystackVerifyRate(userId: string): Promise<boolean> {
   if (!limiters) return true
-  const { success } = await limiters.paystackVerifyByUser.limit(userId)
-  return success
+  try {
+    const { success } = await limiters.paystackVerifyByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkPaystackVerifyRate failed, allowing request:', err)
+    return true
+  }
 }
 
 // ── Consecutive failure / lockout tracking ────────────────────────────────────
