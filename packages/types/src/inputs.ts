@@ -6,8 +6,8 @@ export interface OrderStopInput {
   lat: number
   lng: number
   landmark?: string
-  contact_name?: string
-  contact_phone?: string
+  contact_name: string
+  contact_phone: string
 }
 
 export interface CreateOrderInput {
@@ -18,6 +18,8 @@ export interface CreateOrderInput {
   delivery_lat: number
   delivery_lng: number
   delivery_landmark?: string
+  delivery_contact_name: string
+  delivery_contact_phone: string
   package_description: string
   package_size: PackageSize
   package_weight?: number

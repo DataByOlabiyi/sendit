@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { phoneSchema } from './common'
 
 export const loginSchema = z.object({
   email: z.string().email('Enter a valid email address'),
@@ -9,9 +10,7 @@ export const registerSchema = z
   .object({
     full_name: z.string().min(2, 'Full name must be at least 2 characters'),
     email: z.string().email('Enter a valid email address'),
-    phone: z
-      .string()
-      .regex(/^(\+234|0)[789][01]\d{8}$/, 'Enter a valid Nigerian phone number'),
+    phone: phoneSchema,
     password: z.string().min(12, 'Password must be at least 12 characters'),
     confirm_password: z.string(),
     // 'admin' is intentionally excluded — see handle_new_user DB trigger

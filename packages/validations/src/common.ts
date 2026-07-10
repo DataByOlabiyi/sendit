@@ -12,3 +12,7 @@ export const lngSchema = z
   .number({ invalid_type_error: 'Longitude must be a number' })
   .min(-180, 'Longitude must be ≥ -180')
   .max(180, 'Longitude must be ≤ 180')
+
+export const phoneSchema = z
+  .string()
+  .regex(/^(\+234|0)[789][01]\d{8}$/, 'Enter a valid Nigerian phone number')

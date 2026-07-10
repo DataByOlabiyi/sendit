@@ -177,13 +177,13 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderId: order.id,
-          recipientPhone: order.users?.phone ?? undefined,
+          recipientPhone: order.delivery_contact_phone ?? undefined,
         }),
       })
       const data = await res.json()
       if (!res.ok) { setOtpError(data.error ?? 'Failed to generate OTP'); return }
       setOtpSent(true)
-      toast.success(order.users?.phone ? 'OTP sent to recipient' : 'OTP generated')
+      toast.success(order.delivery_contact_phone ? 'OTP sent to recipient' : 'OTP generated')
     } catch { setOtpError('Network error') }
     finally { setOtpLoading(false) }
   }
@@ -344,6 +344,30 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
         </div>
       </div>
 
+      {/* Recipient info */}
+      {isOwnOrder && order.delivery_contact_name && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recipient</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-900">{order.delivery_contact_name}</p>
+              <p className="text-xs text-gray-500">{order.delivery_contact_phone}</p>
+            </div>
+            {order.delivery_contact_phone && (
+              <a
+                href={`tel:${order.delivery_contact_phone}`}
+                className="flex items-center gap-1.5 px-3 py-2 bg-green-50 text-green-600 rounded-xl text-sm font-medium hover:bg-green-100 transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                Call
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Package */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
         <h2 className="text-sm font-semibold text-gray-900 mb-3">Package</h2>
@@ -394,12 +418,12 @@ export function RiderOrderDetail({ order, riderId }: RiderOrderDetailProps) {
                   disabled={otpLoading}
                   className="w-full py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 font-medium text-sm rounded-xl transition disabled:opacity-50"
                 >
-                  {otpLoading ? 'Sending…' : order.users?.phone ? 'Send OTP to Recipient' : 'Generate OTP'}
+                  {otpLoading ? 'Sending…' : order.delivery_contact_phone ? 'Send OTP to Recipient' : 'Generate OTP'}
                 </button>
               ) : (
                 <div className="space-y-2">
                   <p className="text-xs text-gray-500">
-                    {order.users?.phone ? 'OTP sent to recipient. Ask them for the code.' : 'Ask recipient for the 4-digit code.'}
+                    {order.delivery_contact_phone ? 'OTP sent to recipient. Ask them for the code.' : 'Ask recipient for the 4-digit code.'}
                   </p>
                   <div className="flex gap-2">
                     <input

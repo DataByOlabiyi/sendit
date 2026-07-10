@@ -127,7 +127,10 @@ export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
   }
 
   async function handleConfirm() {
-    if (!data.pickup_address || !data.delivery_address || !data.package_description || !data.package_size) {
+    if (
+      !data.pickup_address || !data.delivery_address || !data.package_description || !data.package_size ||
+      !data.delivery_contact_name || !data.delivery_contact_phone
+    ) {
       toast.error('Please complete all booking steps first')
       return
     }
@@ -143,6 +146,8 @@ export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
         delivery_lat: data.delivery_lat ?? 6.5244,
         delivery_lng: data.delivery_lng ?? 3.3792,
         delivery_landmark: data.delivery_landmark,
+        delivery_contact_name: data.delivery_contact_name,
+        delivery_contact_phone: data.delivery_contact_phone,
         package_description: data.package_description,
         package_size: data.package_size as PackageSize,
         package_weight: data.package_weight,
@@ -155,6 +160,8 @@ export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
         preferred_time_slot: data.preferred_time_slot,
         promo_id: promoId ?? undefined,
         promo_discount: promoDiscount > 0 ? promoDiscount : undefined,
+        is_multi_stop: data.is_multi_stop ?? false,
+        extra_stops: data.extra_stops,
       })
 
       if (result?.error) {
@@ -251,11 +258,29 @@ export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
               <p className="text-sm text-gray-700">{data.delivery_address}</p>
             </div>
           </div>
+          {data.extra_stops?.map((stop, idx) => (
+            <div key={idx} className="flex items-start gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-gray-400 mt-1.5 shrink-0" />
+              <div>
+                <p className="text-xs text-gray-400">STOP {idx + 2}</p>
+                <p className="text-sm text-gray-700">{stop.address}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{stop.contact_name} · {stop.contact_phone}</p>
+              </div>
+            </div>
+          ))}
         </div>
         <div className="flex gap-4 mt-4 pt-4 border-t border-gray-100 text-sm text-gray-500">
           <span>~{pricing.estimated_distance_km}km</span>
           <span>~{pricing.estimated_duration_min} min</span>
         </div>
+        {data.delivery_contact_name && (
+          <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+            <div>
+              <p className="text-xs text-gray-400">RECIPIENT</p>
+              <p className="text-sm text-gray-700">{data.delivery_contact_name} · {data.delivery_contact_phone}</p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Package */}

@@ -16,6 +16,10 @@ const schema = z.object({
   delivery_lat: z.number(),
   delivery_lng: z.number(),
   delivery_landmark: z.string().max(200).optional(),
+  delivery_contact_name: z.string().min(2, "Enter the recipient's name"),
+  delivery_contact_phone: z
+    .string()
+    .regex(/^(\+234|0)[789][01]\d{8}$/, 'Enter a valid Nigerian phone number'),
 })
 
 type StepDeliveryData = z.infer<typeof schema>
@@ -36,6 +40,8 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
     (data.extra_stops ?? []).map((s) => ({ address: s.address ?? '', lat: s.lat ?? 0, lng: s.lng ?? 0 }))
   )
 
+  const [stopErrors, setStopErrors] = useState<Record<number, string>>({})
+
   const { handleSubmit, register, setValue, watch, formState: { errors } } = useForm<StepDeliveryData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -43,6 +49,8 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
       delivery_lat: data.delivery_lat ?? 0,
       delivery_lng: data.delivery_lng ?? 0,
       delivery_landmark: data.delivery_landmark ?? '',
+      delivery_contact_name: data.delivery_contact_name ?? '',
+      delivery_contact_phone: data.delivery_contact_phone ?? '',
     },
   })
 
@@ -77,12 +85,33 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
     ))
   }
 
+  function handleStopContactChange(idx: number, field: 'contact_name' | 'contact_phone', value: string) {
+    setExtraStops((prev) => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s))
+    setStopErrors((prev) => { const next = { ...prev }; delete next[idx]; return next })
+  }
+
+  const PHONE_RE = /^(\+234|0)[789][01]\d{8}$/
+
   function onSubmit(formData: StepDeliveryData) {
-    const validStops = extraStops.filter((s) => s.address && s.lat && s.lng) as OrderStopInput[]
+    const stopsInUse = extraStops.filter((s) => s.address)
+
+    const nextStopErrors: Record<number, string> = {}
+    stopsInUse.forEach((s, idx) => {
+      if (!s.contact_name || s.contact_name.trim().length < 2) {
+        nextStopErrors[idx] = "Enter the recipient's name for this stop"
+      } else if (!s.contact_phone || !PHONE_RE.test(s.contact_phone)) {
+        nextStopErrors[idx] = 'Enter a valid Nigerian phone number for this stop'
+      }
+    })
+    if (Object.keys(nextStopErrors).length > 0) {
+      setStopErrors(nextStopErrors)
+      return
+    }
+
     onUpdate({
       ...formData,
-      extra_stops: validStops.length > 0 ? validStops : undefined,
-      is_multi_stop: validStops.length > 0,
+      extra_stops: stopsInUse.length > 0 ? (stopsInUse as OrderStopInput[]) : undefined,
+      is_multi_stop: stopsInUse.length > 0,
     })
     onNext()
   }
@@ -127,12 +156,40 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
           )}
         </div>
 
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Recipient Name</label>
+            <input
+              {...register('delivery_contact_name')}
+              type="text"
+              placeholder="Who's receiving this?"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+            {errors.delivery_contact_name && (
+              <p className="mt-1.5 text-xs text-red-500">{errors.delivery_contact_name.message}</p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Recipient Phone</label>
+            <input
+              {...register('delivery_contact_phone')}
+              type="tel"
+              placeholder="08012345678"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition placeholder:text-gray-400"
+            />
+            {errors.delivery_contact_phone && (
+              <p className="mt-1.5 text-xs text-red-500">{errors.delivery_contact_phone.message}</p>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 -mt-3 mb-4">Your rider will contact this person on arrival</p>
+
         {/* Multi-stop: extra drop-off points */}
         <div className="mt-4">
           {extraStops.length > 0 && (
             <div className="space-y-3 mb-3">
               {extraStops.map((stop, idx) => (
-                <div key={idx} className="relative">
+                <div key={idx} className="relative p-3 border border-gray-100 rounded-xl">
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     Stop {idx + 2}
                     <button type="button" onClick={() => removeStop(idx)} className="ml-2 text-xs text-red-400 hover:text-red-600 font-normal">Remove</button>
@@ -142,6 +199,25 @@ export function StepDelivery({ data, onUpdate, onNext, onBack }: StepDeliveryPro
                     placeholder={`Address for stop ${idx + 2}`}
                     onSelect={(details) => handleStopSelect(idx, details)}
                   />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={stop.contact_name ?? ''}
+                      onChange={(e) => handleStopContactChange(idx, 'contact_name', e.target.value)}
+                      placeholder="Recipient name"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+                    />
+                    <input
+                      type="tel"
+                      value={stop.contact_phone ?? ''}
+                      onChange={(e) => handleStopContactChange(idx, 'contact_phone', e.target.value)}
+                      placeholder="Recipient phone"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
+                    />
+                  </div>
+                  {stopErrors[idx] && (
+                    <p className="mt-1.5 text-xs text-red-500">{stopErrors[idx]}</p>
+                  )}
                 </div>
               ))}
             </div>

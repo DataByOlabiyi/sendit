@@ -188,6 +188,11 @@ export function OrderDetail({ order }: OrderDetailProps) {
             <div>
               <p className="text-xs text-gray-400 font-medium">DELIVERY</p>
               <p className="text-sm text-gray-700 mt-0.5">{order.delivery_address}</p>
+              {order.delivery_contact_name && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Recipient: {order.delivery_contact_name} · {order.delivery_contact_phone}
+                </p>
+              )}
             </div>
           </div>
         </div>

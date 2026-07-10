@@ -106,6 +106,8 @@ export interface Order {
   delivery_address: string
   delivery_lat: number
   delivery_lng: number
+  delivery_contact_name: string | null
+  delivery_contact_phone: string | null
   package_description: string
   package_size: PackageSize
   package_weight: number | null

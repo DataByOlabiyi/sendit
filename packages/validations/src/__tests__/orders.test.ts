@@ -9,6 +9,8 @@ const validOrder = {
   delivery_address: '15 Ozumba Mbadiwe, Victoria Island',
   delivery_lat: 6.4281,
   delivery_lng: 3.4219,
+  delivery_contact_name: 'Jane Doe',
+  delivery_contact_phone: '08012345678',
   package_description: 'Electronics',
   package_size: 'small' as const,
   is_fragile: false,
@@ -69,6 +71,8 @@ describe('createOrderSchema', () => {
       address: '15 Somewhere Road, Lagos',
       lat: 6.45,
       lng: 3.40,
+      contact_name: 'John Stop',
+      contact_phone: '08012345678',
     }))
     const result = createOrderSchema.safeParse({ ...validOrder, extra_stops: stops })
     expect(result.success).toBe(false)
@@ -78,9 +82,25 @@ describe('createOrderSchema', () => {
     const result = createOrderSchema.safeParse({
       ...validOrder,
       is_multi_stop: true,
-      extra_stops: [{ sequence: 2, address: '10 Adeola Odeku, VI', lat: 6.428, lng: 3.423 }],
+      extra_stops: [{
+        sequence: 2,
+        address: '10 Adeola Odeku, VI',
+        lat: 6.428,
+        lng: 3.423,
+        contact_name: 'John Stop',
+        contact_phone: '08012345678',
+      }],
     })
     expect(result.success).toBe(true)
+  })
+
+  it('rejects extra stop missing contact info', () => {
+    const result = createOrderSchema.safeParse({
+      ...validOrder,
+      is_multi_stop: true,
+      extra_stops: [{ sequence: 2, address: '10 Adeola Odeku, VI', lat: 6.428, lng: 3.423 }],
+    })
+    expect(result.success).toBe(false)
   })
 })
 

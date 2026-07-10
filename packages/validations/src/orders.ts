@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { latSchema, lngSchema } from './common'
+import { latSchema, lngSchema, phoneSchema } from './common'
 
 export const packageDetailsSchema = z.object({
   package_description: z.string().min(3, 'Describe the package').max(200),
@@ -18,6 +18,8 @@ export const createOrderSchema = z.object({
   delivery_lat: latSchema,
   delivery_lng: lngSchema,
   delivery_landmark: z.string().max(200).optional(),
+  delivery_contact_name: z.string().min(2, "Enter the recipient's name").max(100),
+  delivery_contact_phone: phoneSchema,
   package_description: z.string().min(3).max(200),
   package_size: z.enum(['small', 'medium', 'large', 'extra_large']),
   package_weight: z.number().positive().optional(),
@@ -38,8 +40,8 @@ export const createOrderSchema = z.object({
     lat: latSchema,
     lng: lngSchema,
     landmark: z.string().max(200).optional(),
-    contact_name: z.string().max(100).optional(),
-    contact_phone: z.string().max(20).optional(),
+    contact_name: z.string().min(2, "Enter the recipient's name").max(100),
+    contact_phone: phoneSchema,
   })).max(10, 'Maximum 10 extra stops').optional(),
 }).refine(
   (data) => !data.is_scheduled || !!data.scheduled_pickup_at,
