@@ -87,10 +87,19 @@ export async function checkForgotRate(email: string): Promise<boolean> {
   return success
 }
 
+// Upstash is an external network dependency for a non-security-critical
+// abuse guard here — a transient blip must not take down checkout, so this
+// one fails open (same as the "credentials absent" case) rather than
+// throwing uncaught, unlike the auth-facing limiters above.
 export async function checkBookingRate(userId: string): Promise<boolean> {
   if (!limiters) return true
-  const { success } = await limiters.bookingByUser.limit(userId)
-  return success
+  try {
+    const { success } = await limiters.bookingByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkBookingRate failed, allowing request:', err)
+    return true
+  }
 }
 
 export async function checkPaystackInitRate(userId: string): Promise<boolean> {
