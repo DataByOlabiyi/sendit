@@ -5,6 +5,9 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { formatDate } from '@sendit/utils'
 import { approveRiderAction, suspendRiderAction, rejectRiderAction } from '@/app/dashboard/riders/actions'
+import { createClient } from '@/lib/supabase/client'
+
+const isImagePath = (path: string) => /\.(jpg|jpeg|png|webp)$/i.test(path)
 
 interface RiderRow {
   id: string
@@ -72,6 +75,29 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
   const [reasonText, setReasonText] = useState('')
   const [kycLoading, setKycLoading] = useState(false)
   const [kycRejectReason, setKycRejectReason] = useState('')
+  const [docUrls, setDocUrls] = useState<{ license: string | null; vehicle: string | null; loading: boolean }>({
+    license: null,
+    vehicle: null,
+    loading: false,
+  })
+
+  async function openDocsModal(rider: RiderRow) {
+    setModal({ type: 'docs', rider })
+    setDocUrls({ license: null, vehicle: null, loading: true })
+
+    const supabase = createClient()
+    const getSignedUrl = async (path: string | null) => {
+      if (!path) return null
+      const { data } = await supabase.storage.from('rider-documents').createSignedUrl(path, 3600)
+      return data?.signedUrl ?? null
+    }
+
+    const [license, vehicle] = await Promise.all([
+      getSignedUrl(rider.license_doc_url),
+      getSignedUrl(rider.vehicle_doc_url),
+    ])
+    setDocUrls({ license, vehicle, loading: false })
+  }
 
   const filtered = riders.filter((r) => {
     const matchesSearch =
@@ -173,7 +199,7 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
       )}
       {(rider.license_doc_url || rider.vehicle_doc_url) && (
         <button
-          onClick={() => setModal({ type: 'docs', rider })}
+          onClick={() => openDocsModal(rider)}
           className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition touch-manipulation"
         >
           View Docs
@@ -492,24 +518,48 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
               {modal.rider.license_doc_url ? (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Driver&apos;s License</p>
-                  {modal.rider.license_doc_url.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                    <img
-                      src={modal.rider.license_doc_url}
-                      alt="Driver license"
-                      className="w-full rounded-xl object-contain max-h-64 bg-gray-50"
-                    />
+                  {docUrls.loading ? (
+                    <div className="h-40 rounded-xl bg-gray-50 flex items-center justify-center">
+                      <span className="text-xs text-gray-400">Loading…</span>
+                    </div>
+                  ) : docUrls.license ? (
+                    <>
+                      {isImagePath(modal.rider.license_doc_url) ? (
+                        <img
+                          src={docUrls.license}
+                          alt="Driver license"
+                          className="w-full rounded-xl object-contain max-h-64 bg-gray-50"
+                        />
+                      ) : (
+                        <div className="h-40 rounded-xl border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                          <p className="text-xs text-gray-500">PDF Document</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <a
+                          href={docUrls.license}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 py-1.5 text-xs font-medium text-center text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                        >
+                          View
+                        </a>
+                        <a
+                          href={docUrls.license}
+                          download
+                          className="flex-1 py-1.5 text-xs font-medium text-center text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    </>
                   ) : (
-                    <a
-                      href={modal.rider.license_doc_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Open license document
-                    </a>
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                      <p className="text-xs text-red-600">Failed to load document</p>
+                    </div>
                   )}
                 </div>
               ) : (
@@ -521,24 +571,48 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
               {modal.rider.vehicle_doc_url ? (
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vehicle Registration</p>
-                  {modal.rider.vehicle_doc_url.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-                    <img
-                      src={modal.rider.vehicle_doc_url}
-                      alt="Vehicle registration"
-                      className="w-full rounded-xl object-contain max-h-64 bg-gray-50"
-                    />
+                  {docUrls.loading ? (
+                    <div className="h-40 rounded-xl bg-gray-50 flex items-center justify-center">
+                      <span className="text-xs text-gray-400">Loading…</span>
+                    </div>
+                  ) : docUrls.vehicle ? (
+                    <>
+                      {isImagePath(modal.rider.vehicle_doc_url) ? (
+                        <img
+                          src={docUrls.vehicle}
+                          alt="Vehicle registration"
+                          className="w-full rounded-xl object-contain max-h-64 bg-gray-50"
+                        />
+                      ) : (
+                        <div className="h-40 rounded-xl border border-gray-200 bg-gray-50 flex flex-col items-center justify-center gap-2">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                          </svg>
+                          <p className="text-xs text-gray-500">PDF Document</p>
+                        </div>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <a
+                          href={docUrls.vehicle}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 py-1.5 text-xs font-medium text-center text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+                        >
+                          View
+                        </a>
+                        <a
+                          href={docUrls.vehicle}
+                          download
+                          className="flex-1 py-1.5 text-xs font-medium text-center text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg transition"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    </>
                   ) : (
-                    <a
-                      href={modal.rider.vehicle_doc_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-4 py-3 border border-gray-200 rounded-xl text-sm text-blue-600 hover:bg-blue-50 transition"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Open vehicle document
-                    </a>
+                    <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                      <p className="text-xs text-red-600">Failed to load document</p>
+                    </div>
                   )}
                 </div>
               ) : (
