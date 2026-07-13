@@ -50,16 +50,10 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 })
   }
 
-  if (!timedOutOrders?.length) {
-    return new Response(JSON.stringify({ cancelled: 0 }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
   let cancelledCount = 0
   const errors: string[] = []
 
-  for (const order of timedOutOrders) {
+  for (const order of timedOutOrders ?? []) {
     // Cancel the order
     const { error: cancelError } = await supabase
       .from('orders')
@@ -117,6 +111,68 @@ Deno.serve(async (req) => {
     }).catch((err: Error) => console.error('Notification error:', err))
 
     cancelledCount++
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sweep 2: orders where payment was never completed at all — the customer
+  // abandoned checkout or closed the Paystack popup before paying. Cash is
+  // exempt: those orders legitimately sit at payment_status 'pending' until
+  // COD confirmation at delivery, so sweeping them would cancel live jobs.
+  // ---------------------------------------------------------------------------
+  const { data: abandonConfigRow } = await supabase
+    .from('platform_config')
+    .select('value')
+    .eq('key', 'payment_abandon_timeout_minutes')
+    .single()
+
+  const abandonTimeoutMinutes = parseInt(abandonConfigRow?.value ?? '20', 10)
+  const abandonCutoff = new Date(Date.now() - abandonTimeoutMinutes * 60 * 1000).toISOString()
+
+  const { data: abandonedOrders, error: abandonFetchError } = await supabase
+    .from('orders')
+    .select('id, customer_id, reference')
+    .eq('status', 'pending')
+    .eq('payment_status', 'pending')
+    .neq('payment_method', 'cash')
+    .lt('created_at', abandonCutoff)
+    .limit(50)
+
+  if (abandonFetchError) {
+    console.error('Error fetching abandoned-payment orders:', abandonFetchError)
+  } else if (abandonedOrders?.length) {
+    for (const order of abandonedOrders) {
+      const { error: cancelError } = await supabase
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          cancelled_by: 'system',
+          cancelled_reason: `Payment was not completed within ${abandonTimeoutMinutes} minutes.`,
+        })
+        .eq('id', order.id)
+        .eq('status', 'pending') // guard against race
+
+      if (cancelError) {
+        errors.push(`Order ${order.id} (abandoned payment): ${cancelError.message}`)
+        continue
+      }
+
+      // Nothing was ever charged — just close out any dangling pending payment row.
+      await supabase
+        .from('payments')
+        .update({ status: 'failed' })
+        .eq('order_id', order.id)
+        .eq('status', 'pending')
+
+      await supabase.from('notifications').insert({
+        user_id: order.customer_id,
+        type: 'order_update',
+        title: 'Order Cancelled — Payment Not Completed',
+        body: `Your order ${order.reference ?? order.id.slice(0, 8).toUpperCase()} was cancelled because payment was not completed in time. You can book again anytime.`,
+        data: { order_id: order.id, action: 'auto_cancelled_unpaid' },
+      }).catch((err: Error) => console.error('Notification error:', err))
+
+      cancelledCount++
+    }
   }
 
   console.log(`order-timeout: cancelled ${cancelledCount} orders, ${errors.length} errors`)

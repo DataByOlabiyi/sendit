@@ -346,5 +346,15 @@ export async function cancelOrderAction(orderId: string, reason?: string) {
 
   if (error) return { error: 'Failed to cancel order' }
 
+  // No money ever moved for this attempt — close out the dangling payment
+  // record too, so it doesn't sit at 'pending' forever on the admin side.
+  if (order.payment_status !== 'paid') {
+    await admin
+      .from('payments')
+      .update({ status: 'failed' })
+      .eq('order_id', orderId)
+      .eq('status', 'pending')
+  }
+
   return { success: true }
 }

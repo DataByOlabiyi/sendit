@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { formatCurrency, calculatePricing, haversineDistance } from '@sendit/utils'
-import { createOrderAction } from '@/app/(customer)/book/actions'
+import { createOrderAction, cancelOrderAction } from '@/app/(customer)/book/actions'
 import { initializePaystackPayment, generatePaystackReference } from '@/lib/paystack'
 import { createClient } from '@/lib/supabase/client'
 import type { BookingData } from './booking-flow'
@@ -226,6 +226,12 @@ export function StepConfirm({ data, onBack, onSuccess }: StepConfirmProps) {
             }
           },
           onClose: () => {
+            // The order row was already inserted before this popup opened
+            // (createOrderAction above) — nothing charges it, so cancel it
+            // now rather than leaving a dangling pending order behind.
+            cancelOrderAction(result.orderId, 'Payment cancelled by customer').catch((err) =>
+              console.error('Failed to cancel order after payment close:', err),
+            )
             toast.info('Payment cancelled')
             setIsLoading(false)
           },

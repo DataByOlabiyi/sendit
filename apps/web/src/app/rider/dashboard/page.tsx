@@ -33,6 +33,10 @@ export default async function RiderDashboardPage() {
         .from('orders')
         .select('*')
         .eq('status', 'pending')
+        // Cash orders legitimately sit at payment_status 'pending' until COD
+        // confirmation at delivery; Paystack/wallet orders must be paid before
+        // a rider can see them, otherwise an abandoned checkout looks like a job.
+        .or('payment_method.eq.cash,payment_status.eq.paid')
         .order('created_at', { ascending: false })
         .limit(50),
       supabase

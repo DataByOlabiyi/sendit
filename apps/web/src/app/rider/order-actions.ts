@@ -42,6 +42,9 @@ export async function acceptOrderAction(orderId: string) {
     .update({ rider_id: rider.id, status: 'accepted' })
     .eq('id', orderId)
     .eq('status', 'pending')
+    // Same payment guard as the dashboard listing — a rider must not be able
+    // to accept an unpaid Paystack/wallet order by calling this action directly.
+    .or('payment_method.eq.cash,payment_status.eq.paid')
     .select('customer_id')
     .single()
 
