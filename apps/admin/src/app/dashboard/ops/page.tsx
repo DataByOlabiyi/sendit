@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { formatRelativeTime, formatCurrency } from '@sendit/utils'
 
@@ -75,7 +76,7 @@ export default async function OpsCenterPage() {
       .eq('status', 'pending'),
     supabase
       .from('payments')
-      .select('id, amount, created_at, orders!inner(reference, pickup_address, delivery_address)')
+      .select('id, order_id, amount, created_at, orders!inner(reference, pickup_address, delivery_address)')
       .eq('status', 'refunded')
       .gte('updated_at', ago24h.toISOString())
       .order('updated_at', { ascending: false })
@@ -101,13 +102,13 @@ export default async function OpsCenterPage() {
     ? Math.round(((assignedToday?.length ?? 0) / totalToday) * 100)
     : 0
 
-  const alerts: { level: 'critical' | 'warning'; message: string }[] = []
-  if (stuckCount > 0) alerts.push({ level: 'critical', message: `${stuckCount} order${stuckCount > 1 ? 's' : ''} stuck in dispatch for 15+ minutes` })
+  const alerts: { level: 'critical' | 'warning'; message: string; href?: string }[] = []
+  if (stuckCount > 0) alerts.push({ level: 'critical', message: `${stuckCount} order${stuckCount > 1 ? 's' : ''} stuck in dispatch for 15+ minutes`, href: '#stuck-dispatch-queue' })
   if ((onlineRiders ?? 0) === 0) alerts.push({ level: 'critical', message: 'No riders currently online — deliveries cannot be assigned' })
-  if ((paymentFailures1h ?? 0) >= 5) alerts.push({ level: 'critical', message: `${paymentFailures1h} payment failures in the last hour` })
-  if ((openDisputes ?? 0) > 10) alerts.push({ level: 'warning', message: `${openDisputes} open disputes need attention` })
-  if ((pendingKyc ?? 0) > 0) alerts.push({ level: 'warning', message: `${pendingKyc} KYC submission${(pendingKyc ?? 0) > 1 ? 's' : ''} awaiting review` })
-  if ((pendingRiders ?? 0) > 0) alerts.push({ level: 'warning', message: `${pendingRiders} rider application${(pendingRiders ?? 0) > 1 ? 's' : ''} awaiting approval` })
+  if ((paymentFailures1h ?? 0) >= 5) alerts.push({ level: 'critical', message: `${paymentFailures1h} payment failures in the last hour`, href: '/dashboard/payments' })
+  if ((openDisputes ?? 0) > 10) alerts.push({ level: 'warning', message: `${openDisputes} open disputes need attention`, href: '/dashboard/disputes' })
+  if ((pendingKyc ?? 0) > 0) alerts.push({ level: 'warning', message: `${pendingKyc} KYC submission${(pendingKyc ?? 0) > 1 ? 's' : ''} awaiting review`, href: '/dashboard/kyc' })
+  if ((pendingRiders ?? 0) > 0) alerts.push({ level: 'warning', message: `${pendingRiders} rider application${(pendingRiders ?? 0) > 1 ? 's' : ''} awaiting approval`, href: '/dashboard/riders' })
 
   const metrics = [
     { label: 'Orders Today', value: totalToday.toLocaleString(), sub: `${deliveredToday ?? 0} delivered`, color: 'text-gray-900' },
@@ -128,19 +129,24 @@ export default async function OpsCenterPage() {
       {/* Alerts */}
       {alerts.length > 0 && (
         <div className="space-y-2 mb-6">
-          {alerts.map((alert, i) => (
-            <div
-              key={i}
-              className={`flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium ${
-                alert.level === 'critical'
-                  ? 'bg-red-50 border border-red-200 text-red-700'
-                  : 'bg-yellow-50 border border-yellow-200 text-yellow-700'
-              }`}
-            >
-              <span className="mt-0.5">{alert.level === 'critical' ? '🔴' : '🟡'}</span>
-              {alert.message}
-            </div>
-          ))}
+          {alerts.map((alert, i) => {
+            const classes = `flex items-start gap-3 px-4 py-3 rounded-xl text-sm font-medium transition ${
+              alert.level === 'critical'
+                ? 'bg-red-50 border border-red-200 text-red-700'
+                : 'bg-yellow-50 border border-yellow-200 text-yellow-700'
+            } ${alert.href ? (alert.level === 'critical' ? 'hover:bg-red-100' : 'hover:bg-yellow-100') : ''}`
+            const content = (
+              <>
+                <span className="mt-0.5">{alert.level === 'critical' ? '🔴' : '🟡'}</span>
+                {alert.message}
+              </>
+            )
+            return alert.href ? (
+              <Link key={i} href={alert.href} className={classes}>{content}</Link>
+            ) : (
+              <div key={i} className={classes}>{content}</div>
+            )
+          })}
         </div>
       )}
 
@@ -164,7 +170,7 @@ export default async function OpsCenterPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Stuck Dispatch Queue */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div id="stuck-dispatch-queue" className="bg-white rounded-2xl border border-gray-100 p-5 scroll-mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-gray-900">Stuck Dispatch Queue</h2>
             {stuckCount > 0 && (
@@ -180,7 +186,11 @@ export default async function OpsCenterPage() {
               {topStuckOrders?.map((order) => {
                 const customer = order.users as unknown as { full_name: string; email: string } | null
                 return (
-                  <div key={order.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                  <Link
+                    key={order.id}
+                    href={`/dashboard/orders/${order.id}`}
+                    className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg -mx-2 px-2"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{order.reference}</p>
                       <p className="text-xs text-gray-500 truncate">{order.pickup_address}</p>
@@ -190,7 +200,7 @@ export default async function OpsCenterPage() {
                       <p className="text-xs font-medium text-red-600">{formatRelativeTime(order.created_at)}</p>
                       <p className="text-xs text-gray-500">{formatCurrency(order.total_fee)}</p>
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
               {stuckCount > 10 && (
@@ -210,7 +220,11 @@ export default async function OpsCenterPage() {
               {recentRefunds?.map((refund) => {
                 const order = refund.orders as unknown as { reference: string; pickup_address: string; delivery_address: string } | null
                 return (
-                  <div key={refund.id} className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                  <Link
+                    key={refund.id}
+                    href={`/dashboard/orders/${refund.order_id}`}
+                    className="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition rounded-lg -mx-2 px-2"
+                  >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-gray-900">{order?.reference ?? '—'}</p>
                       <p className="text-xs text-gray-500 truncate">{order?.pickup_address}</p>
@@ -219,7 +233,7 @@ export default async function OpsCenterPage() {
                       <p className="text-sm font-semibold text-red-600">−{formatCurrency(refund.amount)}</p>
                       <p className="text-xs text-gray-400">{formatRelativeTime(refund.created_at)}</p>
                     </div>
-                  </div>
+                  </Link>
                 )
               })}
             </div>

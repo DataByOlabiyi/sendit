@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import { Pagination } from '@/components/ui/pagination'
@@ -24,6 +26,7 @@ interface AdminOrdersTableProps {
 }
 
 export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
+  const router = useRouter()
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [page, setPage] = useState(1)
@@ -93,7 +96,11 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
           </div>
         ) : (
           paginated.map((order) => (
-            <div key={order.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+            <Link
+              key={order.id}
+              href={`/dashboard/orders/${order.id}`}
+              className="block bg-white rounded-2xl border border-gray-100 p-4 hover:border-orange-300 transition"
+            >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>
                   <div className="flex items-center gap-2">
@@ -125,7 +132,7 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
                   <span className="text-xs text-gray-400">{formatRelativeTime(order.created_at)}</span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))
         )}
       </div>
@@ -153,7 +160,11 @@ export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
                 </tr>
               )}
               {paginated.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50 transition">
+                <tr
+                  key={order.id}
+                  onClick={() => router.push(`/dashboard/orders/${order.id}`)}
+                  className="hover:bg-gray-50 transition cursor-pointer"
+                >
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs font-mono text-gray-500">{order.id.slice(0, 8).toUpperCase()}</p>

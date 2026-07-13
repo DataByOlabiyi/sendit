@@ -22,9 +22,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   if (!order) notFound()
 
-  const [{ data: existingReview }, { data: existingClaim }] = await Promise.all([
+  const [{ data: existingReview }, { data: existingClaim }, { data: pendingPayment }] = await Promise.all([
     supabase.from('reviews').select('id').eq('order_id', id).eq('reviewer_id', user!.id).maybeSingle(),
     supabase.from('insurance_claims').select('status').eq('order_id', id).maybeSingle(),
+    supabase.from('payments').select('paystack_reference').eq('order_id', id).eq('status', 'pending').maybeSingle(),
   ])
 
   const riderData = order.riders as { id: string; user_id: string; rating: number; users: { full_name: string } | null } | null
@@ -52,7 +53,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           <ResumePaymentButton
             orderId={order.id}
             totalFee={order.total_fee}
-            reference={order.reference ?? null}
+            reference={pendingPayment?.paystack_reference ?? null}
           />
         </div>
       )}
