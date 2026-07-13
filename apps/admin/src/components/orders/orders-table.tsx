@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { formatCurrency, formatRelativeTime } from '@sendit/utils'
 import { StatusBadge } from '@sendit/ui'
 import { Pagination } from '@/components/ui/pagination'
@@ -27,8 +27,9 @@ interface AdminOrdersTableProps {
 
 export function AdminOrdersTable({ orders }: AdminOrdersTableProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') ?? 'all')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
 

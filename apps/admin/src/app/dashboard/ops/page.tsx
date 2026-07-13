@@ -103,7 +103,7 @@ export default async function OpsCenterPage() {
     : 0
 
   const alerts: { level: 'critical' | 'warning'; message: string; href?: string }[] = []
-  if (stuckCount > 0) alerts.push({ level: 'critical', message: `${stuckCount} order${stuckCount > 1 ? 's' : ''} stuck in dispatch for 15+ minutes`, href: '#stuck-dispatch-queue' })
+  if (stuckCount > 0) alerts.push({ level: 'critical', message: `${stuckCount} order${stuckCount > 1 ? 's' : ''} stuck in dispatch for 15+ minutes`, href: '/dashboard/orders?status=pending' })
   if ((onlineRiders ?? 0) === 0) alerts.push({ level: 'critical', message: 'No riders currently online — deliveries cannot be assigned' })
   if ((paymentFailures1h ?? 0) >= 5) alerts.push({ level: 'critical', message: `${paymentFailures1h} payment failures in the last hour`, href: '/dashboard/payments' })
   if ((openDisputes ?? 0) > 10) alerts.push({ level: 'warning', message: `${openDisputes} open disputes need attention`, href: '/dashboard/disputes' })
