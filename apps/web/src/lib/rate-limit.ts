@@ -66,31 +66,50 @@ function createLimiters() {
 
 const limiters = createLimiters()
 
+// These guards sit in front of Supabase's own password check, which stays
+// authoritative regardless of Redis health — so failing open on an Upstash
+// error only skips the extra abuse counter for the outage window, it never
+// bypasses authentication itself.
 export async function checkLoginRate(ip: string, email: string): Promise<boolean> {
   if (!limiters) return true
-  const [byIp, byEmail] = await Promise.all([
-    limiters.loginByIp.limit(ip),
-    limiters.loginByEmail.limit(email.toLowerCase()),
-  ])
-  return byIp.success && byEmail.success
+  try {
+    const [byIp, byEmail] = await Promise.all([
+      limiters.loginByIp.limit(ip),
+      limiters.loginByEmail.limit(email.toLowerCase()),
+    ])
+    return byIp.success && byEmail.success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkLoginRate failed, allowing request:', err)
+    return true
+  }
 }
 
 export async function checkRegisterRate(ip: string): Promise<boolean> {
   if (!limiters) return true
-  const { success } = await limiters.registerByIp.limit(ip)
-  return success
+  try {
+    const { success } = await limiters.registerByIp.limit(ip)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkRegisterRate failed, allowing request:', err)
+    return true
+  }
 }
 
 export async function checkForgotRate(email: string): Promise<boolean> {
   if (!limiters) return true
-  const { success } = await limiters.forgotByEmail.limit(email.toLowerCase())
-  return success
+  try {
+    const { success } = await limiters.forgotByEmail.limit(email.toLowerCase())
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkForgotRate failed, allowing request:', err)
+    return true
+  }
 }
 
 // Upstash is an external network dependency for a non-security-critical
 // abuse guard here — a transient blip must not take down checkout, so this
 // one fails open (same as the "credentials absent" case) rather than
-// throwing uncaught, unlike the auth-facing limiters above.
+// throwing uncaught.
 export async function checkBookingRate(userId: string): Promise<boolean> {
   if (!limiters) return true
   try {
@@ -137,26 +156,40 @@ interface FailureResult {
 export async function recordLoginFailure(email: string): Promise<FailureResult> {
   if (!limiters) return { locked: false, firstLockout: false }
 
-  const key = `auth:lock:${email.toLowerCase()}`
-  const count = await limiters.redis.incr(key)
+  try {
+    const key = `auth:lock:${email.toLowerCase()}`
+    const count = await limiters.redis.incr(key)
 
-  if (count === 1) {
-    // First failure in this window — set the TTL
-    await limiters.redis.expire(key, LOCKOUT_TTL_SECONDS)
+    if (count === 1) {
+      // First failure in this window — set the TTL
+      await limiters.redis.expire(key, LOCKOUT_TTL_SECONDS)
+    }
+
+    const locked = count >= LOCKOUT_THRESHOLD
+    const firstLockout = count === LOCKOUT_THRESHOLD
+    return { locked, firstLockout }
+  } catch (err) {
+    console.error('[sendit/rate-limit] recordLoginFailure failed, not locking:', err)
+    return { locked: false, firstLockout: false }
   }
-
-  const locked = count >= LOCKOUT_THRESHOLD
-  const firstLockout = count === LOCKOUT_THRESHOLD
-  return { locked, firstLockout }
 }
 
 export async function isAccountLocked(email: string): Promise<boolean> {
   if (!limiters) return false
-  const count = await limiters.redis.get<number>(`auth:lock:${email.toLowerCase()}`)
-  return (count ?? 0) >= LOCKOUT_THRESHOLD
+  try {
+    const count = await limiters.redis.get<number>(`auth:lock:${email.toLowerCase()}`)
+    return (count ?? 0) >= LOCKOUT_THRESHOLD
+  } catch (err) {
+    console.error('[sendit/rate-limit] isAccountLocked failed, allowing request:', err)
+    return false
+  }
 }
 
 export async function resetLoginFailures(email: string): Promise<void> {
   if (!limiters) return
-  await limiters.redis.del(`auth:lock:${email.toLowerCase()}`)
+  try {
+    await limiters.redis.del(`auth:lock:${email.toLowerCase()}`)
+  } catch (err) {
+    console.error('[sendit/rate-limit] resetLoginFailures failed:', err)
+  }
 }
