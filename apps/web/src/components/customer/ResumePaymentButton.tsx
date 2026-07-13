@@ -44,9 +44,10 @@ export function ResumePaymentButton({ orderId, totalFee, reference }: ResumePaym
       await initializePaystackPayment({
         key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
         email: profile.email,
-        // totalFee is already in kobo; initializePaystackPayment multiplies by 100
-        // so we convert back to NGN here
-        amount: totalFee / 100,
+        // totalFee (order.total_fee) is stored in NGN, same as the original
+        // checkout flow in step-confirm.tsx — initializePaystackPayment
+        // converts to kobo internally. Dividing here undercharges 100x.
+        amount: totalFee,
         reference: ref,
         onSuccess: async (payRef) => {
           const verifyRes = await fetch('/api/paystack/verify', {
