@@ -26,7 +26,7 @@ const modalConfig: Record<ActionType, {
     title: 'Reject application',
     subtitle: 'The reason will be shown to the rider. They may resubmit with updated information.',
     placeholder: 'e.g. BVN does not match the name provided.',
-    required: false,
+    required: true,
     submitLabel: 'Reject',
     submitStyle: 'bg-red-500 hover:bg-red-600',
   },

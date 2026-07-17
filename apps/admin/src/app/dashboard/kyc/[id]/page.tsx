@@ -27,6 +27,13 @@ const VEHICLE_LABELS: Record<string, string> = {
   bicycle: 'Bicycle', motorcycle: 'Motorcycle', car: 'Car', van: 'Van',
 }
 
+const TIER_LABELS: Record<string, { label: string; color: string }> = {
+  bronze:   { label: 'Bronze',   color: 'bg-amber-50 text-amber-700' },
+  silver:   { label: 'Silver',   color: 'bg-slate-100 text-slate-600' },
+  gold:     { label: 'Gold',     color: 'bg-yellow-50 text-yellow-600' },
+  platinum: { label: 'Platinum', color: 'bg-violet-50 text-violet-700' },
+}
+
 function maskId(val: string | null) {
   if (!val) return null
   return val.slice(0, 3) + '••••' + val.slice(-4)
@@ -102,7 +109,7 @@ export default async function KycRiderDetailPage({
 
   const { data: rider } = await supabase
     .from('riders')
-    .select('*, users!riders_user_id_fkey(full_name, email, phone)')
+    .select('*, users!riders_user_id_fkey(full_name, email, phone, avatar_url, is_active)')
     .eq('id', id)
     .single()
 
@@ -113,7 +120,13 @@ export default async function KycRiderDetailPage({
     getSignedUrl(supabase, rider.vehicle_doc_url ?? null),
   ])
 
-  const riderUser = rider.users as { full_name: string; email: string; phone: string | null } | null
+  const riderUser = rider.users as {
+    full_name: string
+    email: string
+    phone: string | null
+    avatar_url: string | null
+    is_active: boolean
+  } | null
 
   return (
     <div className="px-6 py-8 max-w-4xl mx-auto">
@@ -132,20 +145,72 @@ export default async function KycRiderDetailPage({
 
       {/* Header */}
       <div className="flex items-start justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{riderUser?.full_name ?? 'Unknown Rider'}</h1>
-          <p className="text-sm text-gray-500 mt-0.5">{riderUser?.email}</p>
-          {riderUser?.phone && <p className="text-sm text-gray-500">{riderUser.phone}</p>}
-          <p className="text-xs text-gray-400 mt-1">
-            Applied {new Date(rider.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
+        <div className="flex items-start gap-4">
+          {riderUser?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={riderUser.avatar_url}
+              alt={riderUser.full_name}
+              className="w-14 h-14 rounded-full object-cover border border-gray-100 shrink-0"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 font-semibold text-lg shrink-0">
+              {riderUser?.full_name?.charAt(0).toUpperCase() ?? '?'}
+            </div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{riderUser?.full_name ?? 'Unknown Rider'}</h1>
+            <p className="text-sm text-gray-500 mt-0.5">{riderUser?.email}</p>
+            {riderUser?.phone && <p className="text-sm text-gray-500">{riderUser.phone}</p>}
+            <p className="text-xs text-gray-400 mt-1">
+              Applied {new Date(rider.created_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
+          </div>
         </div>
-        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 ${statusStyles[rider.status] ?? statusStyles.pending}`}>
-          {statusLabels[rider.status] ?? rider.status}
-        </span>
+        <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${statusStyles[rider.status] ?? statusStyles.pending}`}>
+            {statusLabels[rider.status] ?? rider.status}
+          </span>
+          {riderUser && (
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+              riderUser.is_active ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            }`}>
+              Account {riderUser.is_active ? 'Active' : 'Suspended'}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="space-y-6">
+
+        {/* Performance */}
+        <div className="bg-white rounded-2xl border border-gray-100 p-6">
+          <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-4">Performance</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Rating</p>
+              <p className="text-sm font-medium text-gray-900">⭐ {Number(rider.rating).toFixed(1)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Deliveries</p>
+              <p className="text-sm font-medium text-gray-900">{rider.total_deliveries}</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Tier</p>
+              {rider.tier ? (
+                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize ${TIER_LABELS[rider.tier]?.color ?? 'bg-gray-100 text-gray-600'}`}>
+                  {TIER_LABELS[rider.tier]?.label ?? rider.tier}
+                </span>
+              ) : <span className="text-sm text-gray-300">—</span>}
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Availability</p>
+              <p className={`text-sm font-medium ${rider.is_online ? 'text-green-600' : 'text-gray-400'}`}>
+                {rider.is_online ? '● Online' : '● Offline'}
+              </p>
+            </div>
+          </div>
+        </div>
 
         {/* Identity */}
         <div className="bg-white rounded-2xl border border-gray-100 p-6">

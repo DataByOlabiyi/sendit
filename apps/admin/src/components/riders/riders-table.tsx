@@ -64,7 +64,6 @@ type ModalState =
   | { type: 'none' }
   | { type: 'docs'; rider: RiderRow }
   | { type: 'reason'; action: 'suspend' | 'reject'; riderId: string }
-  | { type: 'kyc'; rider: RiderRow }
 
 export function RidersTable({ riders: initialRiders }: RidersTableProps) {
   const [riders, setRiders] = useState(initialRiders)
@@ -73,8 +72,6 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalState>({ type: 'none' })
   const [reasonText, setReasonText] = useState('')
-  const [kycLoading, setKycLoading] = useState(false)
-  const [kycRejectReason, setKycRejectReason] = useState('')
   const [docUrls, setDocUrls] = useState<{ license: string | null; vehicle: string | null; loading: boolean }>({
     license: null,
     vehicle: null,
@@ -162,40 +159,15 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
     }
   }
 
-  async function handleKycAction(riderId: string, action: 'approve' | 'reject') {
-    if (action === 'reject' && !kycRejectReason.trim()) {
-      toast.error('Provide a reason for rejection')
-      return
-    }
-    setKycLoading(true)
-    try {
-      const res = await fetch('/api/kyc/review', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ riderId, action, reason: kycRejectReason.trim() || undefined }),
-      })
-      const data = await res.json()
-      if (!res.ok) { toast.error(data.error ?? 'KYC update failed'); return }
-      const newKycStatus = action === 'approve' ? 'verified' : 'failed'
-      setRiders((prev) => prev.map((r) => r.id === riderId ? { ...r, kyc_status: newKycStatus } : r))
-      toast.success(action === 'approve' ? 'KYC approved — rider verified' : 'KYC rejected')
-      setModal({ type: 'none' })
-    } catch {
-      toast.error('Network error')
-    } finally {
-      setKycLoading(false)
-    }
-  }
-
   const ActionButtons = ({ rider }: { rider: RiderRow }) => (
     <div className="flex items-center justify-end gap-2 flex-wrap">
       {rider.kyc_status === 'submitted' && (
-        <button
-          onClick={() => { setKycRejectReason(''); setModal({ type: 'kyc', rider }) }}
-          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition touch-manipulation"
+        <Link
+          href={`/dashboard/kyc/${rider.id}`}
+          className="text-xs font-medium px-3 py-2.5 min-h-[44px] rounded-lg bg-violet-50 text-violet-600 hover:bg-violet-100 transition touch-manipulation inline-flex items-center"
         >
           Review KYC
-        </button>
+        </Link>
       )}
       {(rider.license_doc_url || rider.vehicle_doc_url) && (
         <button
@@ -429,66 +401,6 @@ export function RidersTable({ riders: initialRiders }: RidersTableProps) {
                 }`}
               >
                 {modal.action === 'suspend' ? 'Suspend' : 'Reject'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* KYC review modal */}
-      {modal.type === 'kyc' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setModal({ type: 'none' })} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6 z-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-900">KYC Review — {modal.rider.users?.full_name}</h2>
-              <button onClick={() => setModal({ type: 'none' })} className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-gray-100 transition text-gray-400 text-lg">×</button>
-            </div>
-
-            <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">BVN</span>
-                <span className="font-mono text-gray-900 font-medium">
-                  {modal.rider.bvn ? `${modal.rider.bvn.slice(0, 3)}••••${modal.rider.bvn.slice(-3)}` : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">NIN</span>
-                <span className="font-mono text-gray-900 font-medium">
-                  {modal.rider.nin ? `${modal.rider.nin.slice(0, 3)}••••${modal.rider.nin.slice(-3)}` : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">License</span>
-                <span className="text-gray-900">{modal.rider.license_number}</span>
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Rejection reason (required if rejecting)</label>
-              <textarea
-                value={kycRejectReason}
-                onChange={(e) => setKycRejectReason(e.target.value)}
-                placeholder="e.g. BVN does not match provided name"
-                rows={2}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-orange-500 placeholder:text-gray-400"
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleKycAction(modal.rider.id, 'reject')}
-                disabled={kycLoading}
-                className="flex-1 py-3 text-sm font-semibold rounded-xl border border-red-200 text-red-600 hover:bg-red-50 transition disabled:opacity-50"
-              >
-                Reject KYC
-              </button>
-              <button
-                onClick={() => handleKycAction(modal.rider.id, 'approve')}
-                disabled={kycLoading}
-                className="flex-1 py-3 text-sm font-semibold rounded-xl bg-green-500 hover:bg-green-600 text-white transition disabled:opacity-50"
-              >
-                {kycLoading ? 'Processing...' : 'Approve KYC'}
               </button>
             </div>
           </div>

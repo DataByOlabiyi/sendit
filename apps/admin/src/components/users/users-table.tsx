@@ -18,6 +18,8 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [suspendTarget, setSuspendTarget] = useState<User | null>(null)
+  const [reason, setReason] = useState('')
 
   const filtered = users.filter(
     (u) =>
@@ -28,20 +30,39 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
 
   function handleSearch(val: string) { setSearch(val); setPage(1) }
 
-  async function handleToggleStatus(user: User) {
+  async function handleReactivate(user: User) {
     setLoadingId(user.id)
     try {
-      const result = user.is_active
-        ? await suspendUserAction(user.id)
-        : await reactivateUserAction(user.id)
-
+      const result = await reactivateUserAction(user.id)
       if (result.error) {
         toast.error(result.error)
       } else {
-        setUsers((prev) =>
-          prev.map((u) => (u.id === user.id ? { ...u, is_active: !u.is_active } : u))
-        )
-        toast.success(user.is_active ? 'User suspended' : 'User reactivated')
+        setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_active: true } : u)))
+        toast.success('User reactivated')
+      }
+    } finally {
+      setLoadingId(null)
+    }
+  }
+
+  function openSuspendModal(user: User) {
+    setReason('')
+    setSuspendTarget(user)
+  }
+
+  async function handleSuspend() {
+    if (!suspendTarget) return
+    if (!reason.trim()) { toast.error('Please provide a reason'); return }
+    const user = suspendTarget
+    setLoadingId(user.id)
+    setSuspendTarget(null)
+    try {
+      const result = await suspendUserAction(user.id, reason.trim())
+      if (result.error) {
+        toast.error(result.error)
+      } else {
+        setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, is_active: false } : u)))
+        toast.success('User suspended')
       }
     } finally {
       setLoadingId(null)
@@ -99,7 +120,7 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
-                        onClick={() => handleToggleStatus(user)}
+                        onClick={() => user.is_active ? openSuspendModal(user) : handleReactivate(user)}
                         disabled={loadingId === user.id}
                         className={`text-xs font-medium px-3 py-1.5 rounded-lg transition disabled:opacity-50 ${
                           user.is_active
@@ -126,6 +147,39 @@ export function UsersTable({ users: initialUsers }: UsersTableProps) {
         onPageSizeChange={setPageSize}
         noun="customers"
       />
+
+      {suspendTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl mx-4">
+            <h3 className="text-base font-semibold text-gray-900 mb-1">Suspend {suspendTarget.full_name}</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Provide a reason. This will be sent to the customer as a notification.
+            </p>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={3}
+              placeholder="Reason for suspension..."
+              className="w-full px-4 py-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-orange-500 resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setSuspendTarget(null)}
+                className="flex-1 py-2.5 text-sm text-gray-700 bg-gray-100 rounded-xl font-medium hover:bg-gray-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSuspend}
+                disabled={!reason.trim()}
+                className="flex-1 py-2.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl font-semibold transition disabled:opacity-50"
+              >
+                Suspend
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

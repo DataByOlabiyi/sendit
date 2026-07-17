@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-export async function suspendUserAction(userId: string) {
+export async function suspendUserAction(userId: string, reason?: string) {
   const supabase = await createClient()
 
   const { error } = await supabase
@@ -12,6 +12,14 @@ export async function suspendUserAction(userId: string) {
     .eq('id', userId)
 
   if (error) return { error: 'Failed to suspend user' }
+
+  await supabase.from('notifications').insert({
+    user_id: userId,
+    type: 'system',
+    title: 'Account Suspended',
+    body: reason ?? 'Your account has been suspended. Contact support for more information.',
+    is_read: false,
+  })
 
   revalidatePath('/dashboard/users')
   return { success: true }

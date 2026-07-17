@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  if ((action === 'request_changes' || action === 'ban') && !reason?.trim()) {
+  if ((action === 'request_changes' || action === 'reject' || action === 'ban') && !reason?.trim()) {
     return NextResponse.json({ error: 'A reason is required for this action' }, { status: 400 })
   }
 
@@ -79,13 +79,11 @@ export async function POST(request: Request) {
       updatePayload = {
         status: 'rejected',
         kyc_status: 'rejected',
-        rejection_reason: reason?.trim() ?? null,
+        rejection_reason: reason.trim(),
         admin_question: null,
       }
       notificationTitle = 'Application Not Approved'
-      notificationBody = reason?.trim()
-        ? `Your application was not approved. Reason: ${reason.trim()}. You may update your details and resubmit.`
-        : 'Your application was not approved. You may update your details and resubmit.'
+      notificationBody = `Your application was not approved. Reason: ${reason.trim()}. You may update your details and resubmit.`
       break
 
     case 'ban':
@@ -137,7 +135,7 @@ export async function POST(request: Request) {
     switch (action as ReviewAction) {
       case 'approve':         sendKycApprovedEmail(email, full_name);                     break
       case 'request_changes': sendKycNeedsInfoEmail(email, full_name, reason.trim());     break
-      case 'reject':          sendKycRejectedEmail(email, full_name, reason?.trim());     break
+      case 'reject':          sendKycRejectedEmail(email, full_name, reason.trim());      break
       case 'ban':             sendKycBannedEmail(email, full_name);                       break
     }
   }
