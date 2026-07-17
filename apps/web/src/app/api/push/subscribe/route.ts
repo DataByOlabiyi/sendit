@@ -1,15 +1,32 @@
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
+import { checkPushSubscribeRate } from '@/lib/rate-limit'
+
+const subscribeSchema = z.object({
+  endpoint: z.string().url('Invalid subscription').max(2000),
+  keys: z.object({
+    p256dh: z.string().min(1),
+    auth: z.string().min(1),
+  }),
+  userAgent: z.string().max(500).nullish(),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { endpoint, keys, userAgent } = await request.json()
-  if (!endpoint || !keys?.p256dh || !keys?.auth) {
+  const allowed = await checkPushSubscribeRate(user.id)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
+  const parsed = subscribeSchema.safeParse(await request.json().catch(() => null))
+  if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
   }
+  const { endpoint, keys, userAgent } = parsed.data
 
   const { error } = await supabase.from('push_subscriptions').upsert(
     {

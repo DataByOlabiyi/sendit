@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { calculatePromoDiscount, type PromoType } from '@sendit/utils'
 import { createClient } from '@/lib/supabase/server'
+import { checkPromoValidateRate } from '@/lib/rate-limit'
 
 const validatePromoSchema = z.object({
   code: z.string().min(1, 'Promo code required').max(50),
@@ -11,6 +13,11 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const allowed = await checkPromoValidateRate(user.id)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
 
   const body = await request.json()
   const parsed = validatePromoSchema.safeParse(body)
@@ -70,11 +77,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You have already used this promo code' }, { status: 400 })
   }
 
-  // Calculate discount
-  const discount =
-    promo.type === 'flat'
-      ? Math.min(promo.value, orderTotal)
-      : Math.floor((orderTotal * promo.value) / 10000) // value is basis points (e.g. 1500 = 15%)
+  const discount = calculatePromoDiscount(
+    { type: promo.type as PromoType, value: promo.value },
+    orderTotal,
+  )
 
   return NextResponse.json({ success: true, discount, promoId: promo.id })
 }

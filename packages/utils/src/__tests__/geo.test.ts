@@ -6,10 +6,10 @@ describe('haversineDistance', () => {
     expect(haversineDistance(6.5244, 3.3792, 6.5244, 3.3792)).toBe(0)
   })
 
-  it('calculates distance between Lagos and Abuja (~480km)', () => {
+  it('calculates distance between Lagos and Abuja (~526km great-circle)', () => {
     const dist = haversineDistance(6.5244, 3.3792, 9.0765, 7.3986)
-    expect(dist).toBeGreaterThan(450)
-    expect(dist).toBeLessThan(520)
+    expect(dist).toBeGreaterThan(510)
+    expect(dist).toBeLessThan(540)
   })
 
   it('calculates short intra-city distance (Victoria Island to Lekki ~5km)', () => {

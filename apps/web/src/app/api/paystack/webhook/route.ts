@@ -2,29 +2,14 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
 import { sendPushToUsers } from '@sendit/notifications'
-
-// Paystack signs every webhook with HMAC-SHA512 using the secret key.
-// We must verify this signature before trusting the payload.
-async function verifyPaystackSignature(body: string, signature: string): Promise<boolean> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(process.env.PAYSTACK_SECRET_KEY ?? ''),
-    { name: 'HMAC', hash: 'SHA-512' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body))
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-  return computed === signature
-}
+import { nairaToKobo, verifyPaystackSignature } from '@sendit/utils'
 
 export async function POST(request: Request) {
   const rawBody = await request.text()
   const signature = request.headers.get('x-paystack-signature') ?? ''
 
-  if (!signature || !(await verifyPaystackSignature(rawBody, signature))) {
+  const secretKey = process.env.PAYSTACK_SECRET_KEY ?? ''
+  if (!signature || !(await verifyPaystackSignature(rawBody, signature, secretKey))) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
@@ -61,7 +46,7 @@ export async function POST(request: Request) {
     // Idempotency: already processed
     if (order.payment_status === 'paid') return NextResponse.json({ ok: true })
 
-    const expectedKobo = Math.round(order.total_fee * 100)
+    const expectedKobo = nairaToKobo(order.total_fee)
     if (chargedKobo !== expectedKobo) {
       console.error(`Webhook amount mismatch for order ${orderId}: expected ${expectedKobo}, got ${chargedKobo}`)
       return NextResponse.json({ ok: true })

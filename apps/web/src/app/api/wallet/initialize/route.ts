@@ -1,21 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { nairaToKobo } from '@sendit/utils'
 import { createClient } from '@/lib/supabase/server'
 import { generatePaystackReference } from '@/lib/paystack'
+import { checkWalletInitRate } from '@/lib/rate-limit'
+
+const walletTopupSchema = z.object({
+  amount: z.coerce
+    .number()
+    .min(100, 'Minimum top-up amount is ₦100')
+    .max(1_000_000, 'Maximum top-up amount is ₦1,000,000'),
+})
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-  const body = await req.json().catch(() => null)
-  const amount = Number(body?.amount)
+  const allowed = await checkWalletInitRate(user.id)
+  if (!allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
 
-  if (!amount || amount < 100) {
-    return NextResponse.json({ error: 'Minimum top-up amount is ₦100' }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  const parsed = walletTopupSchema.safeParse(body)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: parsed.error.issues[0]?.message ?? 'Invalid amount' },
+      { status: 400 },
+    )
   }
-  if (amount > 1_000_000) {
-    return NextResponse.json({ error: 'Maximum top-up amount is ₦1,000,000' }, { status: 400 })
-  }
+  const { amount } = parsed.data
 
   const { data: profile } = await supabase
     .from('users')
@@ -50,7 +65,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       email: profile.email,
-      amount: Math.round(amount * 100), // kobo
+      amount: nairaToKobo(amount),
       reference,
       metadata: { type: 'wallet_topup', userId: user.id },
     }),

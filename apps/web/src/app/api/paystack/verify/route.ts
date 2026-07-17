@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notifyNearbyRidersForOrder } from '@/lib/order-dispatch'
+import { nairaToKobo } from '@sendit/utils'
 import { checkPaystackVerifyRate } from '@/lib/rate-limit'
 
 const verifySchema = z.object({
@@ -72,8 +73,7 @@ export async function POST(request: Request) {
     }
 
     // Verify the amount Paystack actually charged matches what we stored.
-    // Paystack amounts are in kobo (1 NGN = 100 kobo).
-    const expectedKobo = Math.round(order.total_fee * 100)
+    const expectedKobo = nairaToKobo(order.total_fee)
     const chargedKobo: number = paystackData.data.amount
 
     if (chargedKobo !== expectedKobo) {

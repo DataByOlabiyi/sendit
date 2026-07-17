@@ -61,6 +61,24 @@ function createLimiters() {
       limiter: Ratelimit.slidingWindow(10, '1 m'),
       prefix: 'rl:psverify:user',
     }),
+    // 10 promo validations per user per minute — blocks code enumeration
+    promoValidateByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '1 m'),
+      prefix: 'rl:promo:user',
+    }),
+    // 5 wallet top-up initializations per user per minute
+    walletInitByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(5, '1 m'),
+      prefix: 'rl:wtinit:user',
+    }),
+    // 10 push subscription writes per user per minute
+    pushSubscribeByUser: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(10, '1 m'),
+      prefix: 'rl:push:user',
+    }),
   }
 }
 
@@ -142,6 +160,41 @@ export async function checkPaystackVerifyRate(userId: string): Promise<boolean> 
     return success
   } catch (err) {
     console.error('[sendit/rate-limit] checkPaystackVerifyRate failed, allowing request:', err)
+    return true
+  }
+}
+
+export async function checkPromoValidateRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  try {
+    const { success } = await limiters.promoValidateByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkPromoValidateRate failed, allowing request:', err)
+    return true
+  }
+}
+
+// Same fail-open classification as checkPaystackInitRate — an Upstash outage
+// must not block a customer from topping up their wallet.
+export async function checkWalletInitRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  try {
+    const { success } = await limiters.walletInitByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkWalletInitRate failed, allowing request:', err)
+    return true
+  }
+}
+
+export async function checkPushSubscribeRate(userId: string): Promise<boolean> {
+  if (!limiters) return true
+  try {
+    const { success } = await limiters.pushSubscribeByUser.limit(userId)
+    return success
+  } catch (err) {
+    console.error('[sendit/rate-limit] checkPushSubscribeRate failed, allowing request:', err)
     return true
   }
 }

@@ -3,6 +3,8 @@
 import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 
+// Replaces the root layout when it throws, so Tailwind styles may not be
+// loaded — inline styles only.
 export default function GlobalError({
   error,
   reset,

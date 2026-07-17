@@ -1,6 +1,37 @@
 import { PRICING, PACKAGE_SIZE_MULTIPLIER } from '@sendit/constants'
 import type { PackageSize, PricingEstimate } from '@sendit/types'
 
+// Paystack charges in kobo (1 NGN = 100 kobo); orders.total_fee is stored in
+// naira. Every naira→kobo comparison in the payment layer must go through
+// this — inline `* 100` maths caused the 100x undercharge bug (commit 4c11a95).
+export function nairaToKobo(naira: number): number {
+  return Math.round(naira * 100)
+}
+
+export interface CommissionSplit {
+  platformFee: number
+  riderPayout: number
+}
+
+export function computeCommissionSplit(totalFee: number): CommissionSplit {
+  const platformFee = Math.round(totalFee * PRICING.PLATFORM_COMMISSION * 100) / 100
+  const riderPayout = Math.round((totalFee - platformFee) * 100) / 100
+  return { platformFee, riderPayout }
+}
+
+export type PromoType = 'flat' | 'percentage'
+
+// `value` is kobo for flat promos, basis points for percentage promos
+// (1500 = 15%). `orderTotal` is kobo. Mirrors the promo_codes schema.
+export function calculatePromoDiscount(
+  promo: { type: PromoType; value: number },
+  orderTotal: number,
+): number {
+  return promo.type === 'flat'
+    ? Math.min(promo.value, orderTotal)
+    : Math.floor((orderTotal * promo.value) / 10000)
+}
+
 export function calculatePricing(
   distanceKm: number,
   packageSize: PackageSize,

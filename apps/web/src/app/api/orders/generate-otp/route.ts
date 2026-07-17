@@ -3,28 +3,12 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendOtp, generateOtp } from '@/lib/sms-client'
+import { hashOtpForOrder } from '@sendit/utils'
 
 const generateOtpSchema = z.object({
   orderId: z.string().uuid('Invalid order ID'),
   recipientPhone: z.string().regex(/^\+?[1-9]\d{7,14}$/, 'Invalid phone number').optional(),
 })
-
-// HMAC-SHA256 of the OTP using the order ID as the key.
-// Order ID as key means each order has a unique hash space, preventing
-// a DB dump from revealing OTPs via a precomputed 10-000-entry rainbow table.
-async function hashOtpForOrder(otp: string, orderId: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(orderId),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(otp))
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
 
 // Called server-side when an order transitions to in_transit.
 // Generates a 4-digit OTP, stores it hashed, and sends SMS to recipient phone.

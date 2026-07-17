@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { hashOtpForOrder } from '@sendit/utils'
 
 const verifyOtpSchema = z.object({
   orderId: z.string().uuid('Invalid order ID'),
@@ -9,21 +10,6 @@ const verifyOtpSchema = z.object({
 })
 
 const MAX_OTP_ATTEMPTS = 5
-
-// Reproduces the same HMAC used in generate-otp/route.ts.
-async function hashOtpForOrder(otp: string, orderId: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    new TextEncoder().encode(orderId),
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(otp))
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
 
 // Called by the rider when the recipient tells them the OTP.
 // On success, marks delivery_otp_verified_at.

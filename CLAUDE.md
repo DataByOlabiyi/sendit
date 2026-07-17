@@ -93,13 +93,11 @@ Changes anywhere near these flows require manual smoke-test confirmation (or aut
 
 ## Known Tech Debt (Tier 3 — do not accidentally "fix" without a plan)
 
-- Wallet payment method: UI exists, no backend.
-- Cash/COD: no rider confirmation flow.
-- Push notifications: schema exists, no FCM/APNs.
-- `PLATFORM_COMMISSION` constant declared, not applied to earnings.
-- Admin middleware: DB round-trip per request (correct but slow; future fix = custom JWT claim).
-- Chat messages: no pagination.
-- Admin analytics page: stub.
+*Last audited 2026-07-14. Previously listed items that are now implemented — do not re-implement: wallet backend (`/api/wallet/*`), web-push notifications (`packages/notifications`), chat pagination (`use-realtime-chat.ts`), `PLATFORM_COMMISSION` applied via `computeCommissionSplit`, admin analytics dashboard.*
+
+- Admin middleware: DB round-trip per request. Deliberate — the custom JWT role claim migration exists (`20240612000001`) but `apps/admin/src/middleware.ts` intentionally does not trust it. Future fix requires a decision to trust server-set `app_metadata`.
+- Cash/COD: rider confirmation flow not verified end-to-end.
+- No E2E test suite (Playwright) — regression-sensitive paths still rely on manual smoke tests.
 
 ---
 

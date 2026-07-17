@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
-import { PRICING } from '@sendit/constants'
+import { computeCommissionSplit } from '@sendit/utils'
 import { checkPaystackInitRate } from '@/lib/rate-limit'
 
 const initializeSchema = z.object({
@@ -74,8 +74,7 @@ export async function POST(request: Request) {
     }
 
     // No existing pending payment — create one with commission split pre-computed
-    const platformFee = Math.round(order.total_fee * PRICING.PLATFORM_COMMISSION * 100) / 100
-    const riderPayout = Math.round((order.total_fee - platformFee) * 100) / 100
+    const { platformFee, riderPayout } = computeCommissionSplit(order.total_fee)
 
     const { error: paymentError } = await supabase.from('payments').insert({
       order_id: orderId,
