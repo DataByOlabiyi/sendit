@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { formatDate, formatRelativeTime } from '@sendit/utils'
@@ -39,9 +40,9 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   return (
     <div className="px-6 py-8 max-w-3xl mx-auto">
       <div className="mb-6">
-        <a href="/dashboard/support" className="text-sm text-orange-600 hover:text-orange-700 transition mb-3 inline-block">
+        <Link href="/dashboard/support" className="text-sm text-orange-600 hover:text-orange-700 transition mb-3 inline-block">
           ← Back to tickets
-        </a>
+        </Link>
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{ticket.subject}</h1>

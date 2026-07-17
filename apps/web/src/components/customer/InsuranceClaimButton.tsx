@@ -74,7 +74,7 @@ export function InsuranceClaimButton({ orderId, totalFee, existingClaim }: Insur
           <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 z-10">
             <h2 className="text-base font-semibold text-gray-900 mb-1">File Insurance Claim</h2>
             <p className="text-xs text-gray-500 mb-5">
-              Describe the issue and the amount you're claiming. Our team will review within 3–5 business days.
+              Describe the issue and the amount you&apos;re claiming. Our team will review within 3–5 business days.
             </p>
 
             <div className="space-y-4">

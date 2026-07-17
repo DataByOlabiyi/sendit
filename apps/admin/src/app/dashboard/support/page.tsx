@@ -91,9 +91,9 @@ export default async function SupportTicketsPage({
           Filter
         </button>
         {(status || category) && (
-          <a href="/dashboard/support" className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition">
+          <Link href="/dashboard/support" className="px-4 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition">
             Clear
-          </a>
+          </Link>
         )}
       </form>
 

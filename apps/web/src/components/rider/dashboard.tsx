@@ -71,7 +71,7 @@ export function RiderDashboard({ rider, availableOrders, activeOrders, todayEarn
       {rider.status === 'pending' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 mb-6">
           <p className="text-sm font-medium text-yellow-800">Account under review</p>
-          <p className="text-xs text-yellow-600 mt-0.5">Your rider account is being reviewed. You'll be notified once approved.</p>
+          <p className="text-xs text-yellow-600 mt-0.5">Your rider account is being reviewed. You&apos;ll be notified once approved.</p>
         </div>
       )}
 
@@ -127,13 +127,13 @@ export function RiderDashboard({ rider, availableOrders, activeOrders, todayEarn
 
         {!isOnline ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
-            <p className="text-sm font-medium text-gray-900">You're offline</p>
+            <p className="text-sm font-medium text-gray-900">You&apos;re offline</p>
             <p className="text-xs text-gray-500 mt-1">Go online to see available orders</p>
           </div>
         ) : rider.status !== 'approved' ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
             <p className="text-sm font-medium text-gray-900">Account pending approval</p>
-            <p className="text-xs text-gray-500 mt-1">You'll be able to accept orders once approved</p>
+            <p className="text-xs text-gray-500 mt-1">You&apos;ll be able to accept orders once approved</p>
           </div>
         ) : availableOrders.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
